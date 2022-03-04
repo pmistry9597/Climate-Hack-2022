@@ -4,7 +4,7 @@ Our little solution to Climate Hack 2022, more info to be posted as this thing g
 
 Likely based on a self-attention mechanism!
 
-Authors:
+## Authors:
 
 Preet Mistry
 Nathan Jones
