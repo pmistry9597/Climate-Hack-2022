@@ -153,3 +153,7 @@ cython_debug/
 
 # DOXA
 bin
+
+# our own garbage huhuhu
+## storage for satellite data
+eumetsat_seviri_hrv_uk.zarr
