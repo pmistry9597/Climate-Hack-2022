@@ -158,7 +158,7 @@ bin
 ## storage for satellite data
 eumetsat_seviri_hrv_uk.zarr/
 ## nohup (when running garbage in background on gcp)
-nohup.out/
+nohup.out
 ## logging shit
 logs/
 ## current state dict
@@ -167,3 +167,5 @@ submission/curr_model
 basic_models/
 ## faster, compressed numpy array
 uk_data_np/
+## doing dumb tests basically
+testing_pls.ipynb
