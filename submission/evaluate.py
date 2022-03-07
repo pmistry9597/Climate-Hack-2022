@@ -12,7 +12,7 @@ class Evaluator(BaseEvaluator):
         In this case, it loads the trained model (in evaluation mode)."""
 
         self.model = BasicModel()
-        self.model.load_state_dict(torch.load("curr_model"))
+        self.model.load_state_dict(torch.load("curr_model", map_location='cpu'))
         self.model.eval()
 
     def predict(self, coordinates: np.ndarray, data: np.ndarray) -> np.ndarray:
