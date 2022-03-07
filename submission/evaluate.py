@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from climatehack import BaseEvaluator
-from model import Model
+from model import BasicModel
 
 
 class Evaluator(BaseEvaluator):
@@ -11,8 +11,8 @@ class Evaluator(BaseEvaluator):
 
         In this case, it loads the trained model (in evaluation mode)."""
 
-        self.model = Model()
-        self.model.load_state_dict(torch.load("model.pt"))
+        self.model = BasicModel()
+        self.model.load_state_dict(torch.load("curr_model"))
         self.model.eval()
 
     def predict(self, coordinates: np.ndarray, data: np.ndarray) -> np.ndarray:

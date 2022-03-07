@@ -156,4 +156,9 @@ bin
 
 # our own garbage huhuhu
 ## storage for satellite data
-eumetsat_seviri_hrv_uk.zarr
+eumetsat_seviri_hrv_uk.zarr/
+## nohup (when running garbage in background on gcp)
+nohup.out/
+## logging shit
+logs/
+submission/curr_model
