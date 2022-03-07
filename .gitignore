@@ -161,4 +161,7 @@ eumetsat_seviri_hrv_uk.zarr/
 nohup.out/
 ## logging shit
 logs/
+## current state dict
 submission/curr_model
+## state dicts over time
+basic_models/
