@@ -18,9 +18,9 @@ class ChunkifiedDataset:
         self.highest_chunk_no = 0
         self.highest_chunk_name = ''
         for chunk_name in all_chunk_names:
-            chunk_name = chunk_name.replace('.npz', '')
+            pure_no_str = chunk_name.replace('.npz', '')
             try:
-                chunk_no = int(chunk_name)
+                chunk_no = int(pure_no_str)
             except:
                 continue
             self.chunk_nos.add(chunk_no)
@@ -61,7 +61,7 @@ class ChunkifiedDataset:
         if end_idx in self.chunk_nos:
             path = os.path.join(self.chunk_root, f'{end_idx}.npz')
         else: #use last chunk if the generated chunk index doesn't exist
-            path = self.highest_chunk_name
+            path = os.path.join(self.chunk_root, self.highest_chunk_name)
 
         self.prev_chunk_np[0] = self.chunk_np
         self.prev_chunk_np[1] = self.chunk_loaded_start
