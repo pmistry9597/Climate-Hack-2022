@@ -165,3 +165,5 @@ logs/
 submission/curr_model
 ## state dicts over time
 basic_models/
+## faster, compressed numpy array
+uk_data_np/
