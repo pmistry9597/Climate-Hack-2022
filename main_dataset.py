@@ -1,5 +1,6 @@
 import pickle
 import torch
+import numpy as np
 from copy import deepcopy
 from random import randrange
 from datetime import timedelta
@@ -22,7 +23,7 @@ class CHMainDataset(torch.utils.data.Dataset):
         self.corner_and_idxs = gen_tables(idx_2_time)
 
     def __len__(self):
-        return len(self.corner_and_idx)
+        return len(self.corner_and_idxs)
 
     def _crop(self, section, corner, width):
         return section[:, corner[0]:corner[0]+width, corner[1]:corner[1]+width]
@@ -41,13 +42,11 @@ class CHMainDataset(torch.utils.data.Dataset):
         corner = deepcopy(corner)
         in_section = self.np_set[np_idx : np_idx+12]
         in_section = self._in_crop(in_section, corner)
+        in_section = in_section.astype(np.float32)
 
         out_section = self.np_set[np_idx+12 : np_idx+36]
         out_section = self._out_crop(out_section, corner)
-        if out_section.shape[0] == 23:
-            print(out_section.shape)
-            print(corner)
-            print(np_idx)
+        out_section = out_section.astype(np.float32)
 
         return (in_section, out_section)
 
