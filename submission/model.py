@@ -168,6 +168,7 @@ class ImagesPreprocess(torch.nn.Module): # performs embedding and positional/tem
         self.shape = (1, 12, 128, 128)
         self.encoding = torch.nn.Parameter(self._generate_encoding())
         self.encoding.requires_grad = False
+        self.no_batch = False
 
     def _generate_encoding(self):
         useful_dims = len(self.shape) - 1
@@ -181,9 +182,15 @@ class ImagesPreprocess(torch.nn.Module): # performs embedding and positional/tem
         return encoding
 
     def forward(self, in_val):
-        x = in_val.unsqueeze(-1)
-        dims = [-1 for _ in range(len(self.encoding.shape))]
+        x = in_val.unsqueeze(-1).clone()
         batch_count = in_val.shape[0]
+        if len(in_val.shape) == 3:
+            x = x.unsqueeze(0)
+            batch_count = 1
+            self.no_batch = True
+        else:
+            self.no_batch = False
+        dims = [-1 for _ in range(len(self.encoding.shape))]
         dims[0] = batch_count
         encoding = self.encoding.expand(*dims)
         x = torch.cat([x, encoding], dim=-1)
@@ -214,7 +221,10 @@ class PerceiverCH(torch.nn.Module):
         
         x = self.process(x)
 
-        x = x.reshape([in_val.shape[0], *self.out_dim])
+        if self.preprocess.no_batch:
+            x = x.reshape(self.out_dim)
+        else:
+            x = x.reshape([in_val.shape[0], *self.out_dim])
         x = self.sigmoid(x) * self.range
 
         return x
