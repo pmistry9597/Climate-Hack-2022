@@ -92,7 +92,7 @@ class ChunkifiedDataset:
             if start_bounds[1] + 1 != end_bounds[0]:
                 raise KeyError('Bro, your damn slice is massive yo', key)
             
-            slice_0 = slice(key.start, start_bounds[1], key.step)
+            slice_0 = slice(key.start, start_bounds[1]+1, key.step)
             section_0 = self._accessslice_within_chunk(slice_0, start_bounds)
             slice_1 = slice(end_bounds[0], key.stop, key.step)
             section_1 = self._accessslice_within_chunk(slice_1, end_bounds)
