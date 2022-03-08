@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from climatehack import BaseEvaluator
-from model import BasicModel
+from model import PerceiverCH, ImagesPreprocess
 
 
 class Evaluator(BaseEvaluator):
@@ -11,7 +11,9 @@ class Evaluator(BaseEvaluator):
 
         In this case, it loads the trained model (in evaluation mode)."""
 
-        self.model = BasicModel()
+        preprocess = ImagesPreprocess()
+        
+        self.model = PerceiverCH(preprocess, latent_dim=(16, 64), heads=8, wide_factor=4, latent_count=6)
         self.model.load_state_dict(torch.load("curr_model", map_location='cpu'))
         self.model.eval()
 
