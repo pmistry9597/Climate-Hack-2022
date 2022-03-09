@@ -1,7 +1,7 @@
-# %%
+
 import torch
 
-# %%
+
 class QKVAttention(torch.nn.Module):
     def __init__(self, scale, n, q_channels):
         super().__init__()
@@ -23,7 +23,7 @@ class QKVAttention(torch.nn.Module):
         return attention
 
 
-# %%
+
 class MLP(torch.nn.Module):
     def __init__(self, num_channels, wide_factor):
         super().__init__()
@@ -38,7 +38,7 @@ class MLP(torch.nn.Module):
         x = self.lin_out(x)
         return x
 
-# %%
+
 class Attention(torch.nn.Module):
     def __init__(self, num_heads, n, q_channels, kv_channels):
         super().__init__()
@@ -49,10 +49,10 @@ class Attention(torch.nn.Module):
         self.num_heads = num_heads
         self.q_head_channels = q_channels // num_heads
         
-        self.q_trans = torch.nn.Linear(q_channels, q_channels)
-        self.k_trans = torch.nn.Linear(kv_channels, q_channels)
-        self.v_trans = torch.nn.Linear(kv_channels, q_channels)
-        self.out_trans = torch.nn.Linear(q_channels, q_channels)
+        self.q_trans = torch.nn.Linear(q_channels, q_channels, bias=False)
+        self.k_trans = torch.nn.Linear(kv_channels, q_channels, bias=False)
+        self.v_trans = torch.nn.Linear(kv_channels, q_channels, bias=False)
+        self.out_trans = torch.nn.Linear(q_channels, q_channels, bias=False)
         self.qkvAttn = QKVAttention(q_channels ** -0.5, n, q_channels)
 
     def forward(self, q_in, k_in, v_in):
@@ -69,7 +69,7 @@ class Attention(torch.nn.Module):
         out = self.out_trans(attn)
         return out
 
-# %%
+
 class SelfAttention(torch.nn.Module):
     def __init__(self, n, num_channels, heads, wide_factor, p_dropout=0.1):
         super().__init__()
@@ -92,7 +92,6 @@ class SelfAttention(torch.nn.Module):
         return x
 
 
-# %%
 class CrossAttention(torch.nn.Module):
     def __init__(self, n, q_channels, kv_channels, heads, wide_factor, p_dropout=0.1, skip_att=True):
         super().__init__()
@@ -121,7 +120,6 @@ class CrossAttention(torch.nn.Module):
 
         return x
 
-# %%
 class PerceiverEncoder(torch.nn.Module):
     def __init__(self, n, q_channels, kv_channels, heads, wide_factor, latent_count, repeat_count=1, p_dropout=0.1):
         super().__init__()
@@ -139,7 +137,6 @@ class PerceiverEncoder(torch.nn.Module):
             x = self.block((x, kv))
         return self.block((q, kv))
 
-# %%
 class PerceiverInternal(torch.nn.Module):
     def __init__(self, in_channels, latent_dim, q_out_dim, heads, wide_factor, latent_count, repeat_count=1, p_dropout=0.1):
         super().__init__()
@@ -160,7 +157,6 @@ class PerceiverInternal(torch.nn.Module):
         x = self.out_cross((self.q_out, x))
         return x
 
-# %%
 class ImagesPreprocess(torch.nn.Module): # performs embedding and positional/temporal encoding
     def __init__(self):
         super().__init__()
@@ -193,15 +189,14 @@ class ImagesPreprocess(torch.nn.Module): # performs embedding and positional/tem
         dims = [-1 for _ in range(len(self.encoding.shape))]
         dims[0] = batch_count
         encoding = self.encoding.expand(*dims)
-        #x = torch.cat([x, encoding], dim=-1) #concatenating positional encodings
-        x = torch.mul(x, encoding)
+        x = torch.cat([x, encoding], dim=-1) #concatenating positional encodings
+        #x = torch.mul(x, encoding) #scaled positional encooding
 
         #maintain batch and pixel codes, pixels will be in sequential form
         x = torch.flatten(x, start_dim=1, end_dim=-2)
 
         return x
 
-# %%
 class PerceiverCH(torch.nn.Module):
     def __init__(self, preprocessor, latent_dim, heads, wide_factor, latent_count, repeat_count=1, p_dropout=0.1):
         super().__init__()
@@ -210,8 +205,8 @@ class PerceiverCH(torch.nn.Module):
 
         self.preprocess = preprocessor
         out_dim = (self.out_dim[0], self.out_dim[1] * self.out_dim[2])
-        #in_channels = 1 + len(self.out_dim) #1 for pixel data, 3 for position encoding
-        in_channels = len(self.out_dim) # 3 for position encoding that is scaled
+        in_channels = 1 + len(self.out_dim) #1 for pixel data, 3 for position encoding
+        #in_channels = len(self.out_dim) # 3 for position encoding that is scaled
         self.process = PerceiverInternal(in_channels, latent_dim, out_dim, heads, wide_factor, latent_count, repeat_count, p_dropout)
         
         self.sigmoid = torch.nn.Sigmoid()
