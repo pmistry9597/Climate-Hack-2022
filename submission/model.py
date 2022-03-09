@@ -217,7 +217,7 @@ class PerceiverCH(torch.nn.Module):
     def forward(self, in_val):
         x = in_val
         x = x / self.range
-        x = self.preprocess(in_val)
+        x = self.preprocess(x)
         
         x = self.process(x)
 
