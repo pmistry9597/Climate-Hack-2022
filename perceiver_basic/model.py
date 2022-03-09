@@ -167,7 +167,7 @@ class ImagesPreprocess(torch.nn.Module): # performs embedding and positional/tem
         self.no_batch = False
 
     def _generate_encoding(self):
-        useful_dims = len(self.shape) - 1
+        useful_dims = len(self.shape) - 1 #subtract the batch dim
         encoding = torch.zeros([*self.shape, useful_dims])
         for i in range(self.shape[1]):
             for j in range(self.shape[2]):

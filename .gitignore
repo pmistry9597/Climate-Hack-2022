@@ -170,3 +170,5 @@ basic_perceiver_models/
 uk_data_np/
 ## doing dumb tests basically
 testing_pls.ipynb
+## fashion mnist test
+fm_set/
