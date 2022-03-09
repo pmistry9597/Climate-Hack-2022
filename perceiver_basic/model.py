@@ -49,6 +49,9 @@ class MultiHeadAttention(torch.nn.Module):
         self.q_transs = [torch.nn.Linear(q_channels, self.q_head_channels, bias=False) for _ in range(heads)] #Note: switch bias terms if need be
         self.k_transs = [torch.nn.Linear(kv_channels, self.q_head_channels, bias=False) for _ in range(heads)] #Note: swith bias terms if neccessary
         self.v_transs = [torch.nn.Linear(kv_channels, self.q_head_channels, bias=False) for _ in range(heads)] #Note: swith bias terms if neccessary
+        self.q_transs = torch.nn.ModuleList(self.q_transs)
+        self.k_transs = torch.nn.ModuleList(self.k_transs)
+        self.v_transs = torch.nn.ModuleList(self.v_transs)
         self.out_trans = torch.nn.Linear(q_channels, q_channels, bias=False)
 
     def forward(self, q, k, v):
