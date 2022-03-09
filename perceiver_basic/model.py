@@ -193,7 +193,8 @@ class ImagesPreprocess(torch.nn.Module): # performs embedding and positional/tem
         dims = [-1 for _ in range(len(self.encoding.shape))]
         dims[0] = batch_count
         encoding = self.encoding.expand(*dims)
-        x = torch.cat([x, encoding], dim=-1)
+        #x = torch.cat([x, encoding], dim=-1) #concatenating positional encodings
+        x = torch.mul(x, encoding)
 
         #maintain batch and pixel codes, pixels will be in sequential form
         x = torch.flatten(x, start_dim=1, end_dim=-2)
@@ -209,7 +210,8 @@ class PerceiverCH(torch.nn.Module):
 
         self.preprocess = preprocessor
         out_dim = (self.out_dim[0], self.out_dim[1] * self.out_dim[2])
-        in_channels = 1 + len(self.out_dim) #1 for pixel data, 3 for position encoding
+        #in_channels = 1 + len(self.out_dim) #1 for pixel data, 3 for position encoding
+        in_channels = len(self.out_dim) # 3 for position encoding that is scaled
         self.process = PerceiverInternal(in_channels, latent_dim, out_dim, heads, wide_factor, latent_count, repeat_count, p_dropout)
         
         self.sigmoid = torch.nn.Sigmoid()
@@ -218,7 +220,7 @@ class PerceiverCH(torch.nn.Module):
         x = in_val
         x = x / self.range
         x = self.preprocess(x)
-        
+
         x = self.process(x)
 
         if self.preprocess.no_batch:
