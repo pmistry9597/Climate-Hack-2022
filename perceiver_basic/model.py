@@ -109,6 +109,7 @@ class CrossAttention(torch.nn.Module):
         q = self.q_norm(q)
         kv = self.kv_norm(kv)
         attn = self.attn(q, kv, kv)
+        attn = self.dropout(attn)
         if self.skip_att:
             x = x + attn
         else:
@@ -116,6 +117,7 @@ class CrossAttention(torch.nn.Module):
 
         mlp = self.mlp_norm(x)
         mlp = self.mlp(mlp)
+        mlp = self.dropout(mlp)
         x = x + mlp
 
         return x
