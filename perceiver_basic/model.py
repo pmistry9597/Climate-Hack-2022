@@ -22,7 +22,47 @@ class QKVAttention(torch.nn.Module):
         attention = attention.reshape([-1, self.n, self.q_channels])
         return attention
 
+class SingleAttention(torch.nn.Module):
+    def __init__(self, scale):
+        super().__init__()
+        self.scale = scale
+        self.softmax = torch.nn.Softmax(dim=-1)
 
+    def forward(self, q, k, v):
+        att_factor = torch.matmul(q, k.permute([0, 2, 1]))
+        att_factor = self.softmax( att_factor * self.scale )
+        attention = torch.matmul(att_factor, v)
+        return attention
+
+class MultiHeadAttention(torch.nn.Module):
+    def __init__(self, scale, heads, q_channels, kv_channels):
+        super().__init__()
+        self.heads = heads
+        self.q_channels = q_channels
+
+        if q_channels % heads != 0:
+            raise ValueError('Bro ur head and q channel dims not working!', q_channels, heads)
+
+        self.q_head_channels = q_channels // heads
+        
+        self.singleHead = SingleAttention(scale)
+        self.q_transs = [torch.nn.Linear(q_channels, self.q_head_channels, bias=False) for _ in range(heads)] #Note: switch bias terms if need be
+        self.k_transs = [torch.nn.Linear(kv_channels, self.q_head_channels, bias=False) for _ in range(heads)] #Note: swith bias terms if neccessary
+        self.v_transs = [torch.nn.Linear(kv_channels, self.q_head_channels, bias=False) for _ in range(heads)] #Note: swith bias terms if neccessary
+        self.out_trans = torch.nn.Linear(q_channels, q_channels, bias=False)
+
+    def forward(self, q, k, v):
+        head_outs = []
+        for q_trans, k_trans, v_trans in zip(self.q_transs, self.k_transs, self.v_transs):
+            q_head = q_trans(q)
+            k_head = k_trans(k)
+            v_head = v_trans(v)
+            head_out = self.singleHead(q_head, k_head, v_head)
+            head_outs.append(head_out)
+
+        head_out = torch.cat(head_outs, dim=-1)
+        full_attention = self.out_trans(head_out)
+        return full_attention
 
 class MLP(torch.nn.Module):
     def __init__(self, num_channels, wide_factor):
@@ -75,7 +115,8 @@ class SelfAttention(torch.nn.Module):
         super().__init__()
         self.in_norm = torch.nn.LayerNorm(num_channels)
         self.mlp_norm = torch.nn.LayerNorm(num_channels)
-        self.attn = Attention(heads, n, num_channels, num_channels)
+        #self.attn = Attention(heads, n, num_channels, num_channels)
+        self.attn = MultiHeadAttention(num_channels ** -0.5, heads, q_channels=num_channels, kv_channels=num_channels)
         self.mlp = MLP(num_channels, wide_factor)
         self.dropout = torch.nn.Dropout(p=p_dropout)
 
@@ -98,7 +139,8 @@ class CrossAttention(torch.nn.Module):
         self.q_norm = torch.nn.LayerNorm(q_channels)
         self.kv_norm = torch.nn.LayerNorm(kv_channels)
         self.mlp_norm = torch.nn.LayerNorm(q_channels)
-        self.attn = Attention(heads, n, q_channels, kv_channels)
+        #self.attn = Attention(heads, n, q_channels, kv_channels)
+        self.attn = MultiHeadAttention(q_channels ** -0.5, heads, q_channels, kv_channels)
         self.mlp = MLP(q_channels, wide_factor)
         self.dropout = torch.nn.Dropout(p=p_dropout)
         self.skip_att = skip_att
