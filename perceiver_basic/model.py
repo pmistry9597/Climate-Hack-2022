@@ -119,18 +119,21 @@ class SelfAttention(torch.nn.Module):
         self.in_norm = torch.nn.LayerNorm(num_channels)
         self.mlp_norm = torch.nn.LayerNorm(num_channels)
         #self.attn = Attention(heads, n, num_channels, num_channels)
-        self.attn = MultiHeadAttention(num_channels ** -0.5, heads, q_channels=num_channels, kv_channels=num_channels)
+        #self.attn = MultiHeadAttention(num_channels ** -0.5, heads, q_channels=num_channels, kv_channels=num_channels)
+        self.attn = torch.nn.MultiheadAttention(num_channels, heads)
         self.mlp = MLP(num_channels, wide_factor)
         self.dropout = torch.nn.Dropout(p=p_dropout)
 
     def forward(self, in_val):
         x = in_val
         attn = self.in_norm(in_val)
-        attn = self.attn(attn, attn, attn)
+        attn, _ = self.attn(attn, attn, attn)
+        attn = self.dropout(attn)
         x = x + attn
 
         mlp = self.mlp_norm(x)
         mlp = self.mlp(mlp)
+        mlp = self.dropout(mlp)
         x = x + mlp
 
         return x
@@ -143,17 +146,24 @@ class CrossAttention(torch.nn.Module):
         self.kv_norm = torch.nn.LayerNorm(kv_channels)
         self.mlp_norm = torch.nn.LayerNorm(q_channels)
         #self.attn = Attention(heads, n, q_channels, kv_channels)
-        self.attn = MultiHeadAttention(q_channels ** -0.5, heads, q_channels, kv_channels)
+        #self.attn = MultiHeadAttention(q_channels ** -0.5, heads, q_channels, kv_channels)
+        self.attn = torch.nn.MultiheadAttention(q_channels, heads, vdim=kv_channels, kdim=kv_channels, batch_first=True)
         self.mlp = MLP(q_channels, wide_factor)
         self.dropout = torch.nn.Dropout(p=p_dropout)
         self.skip_att = skip_att
+        
+        self.q_channels = q_channels
+        self.kv_channels = kv_channels
 
     def forward(self, q_kv):
         q, kv = q_kv
         x = q
         q = self.q_norm(q)
         kv = self.kv_norm(kv)
-        attn = self.attn(q, kv, kv)
+#         print(q.shape, kv.shape)
+#         print(self.q_channels, self.kv_channels)
+#         print()
+        attn, _ = self.attn(q, kv, kv)
         attn = self.dropout(attn)
         if self.skip_att:
             x = x + attn
@@ -182,7 +192,7 @@ class PerceiverEncoder(torch.nn.Module):
         x = self.block((q, kv))
         for _ in range(self.repeat_count-1):
             x = self.block((x, kv))
-        return self.block((q, kv))
+        return x
 
 class PerceiverInternal(torch.nn.Module):
     def __init__(self, in_channels, latent_dim, q_out_dim, heads, wide_factor, latent_count, repeat_count=1, p_dropout=0.1):
@@ -200,8 +210,18 @@ class PerceiverInternal(torch.nn.Module):
         self.out_cross = CrossAttention(n=q_out_dim[0], q_channels=q_out_dim[1], kv_channels=latent_dim[1], heads=heads, wide_factor=wide_factor, p_dropout=p_dropout, skip_att=False)
 
     def forward(self, in_val):
-        x = self.encoder(self.q_in, in_val)
-        x = self.out_cross((self.q_out, x))
+        q_in_shape = list(self.q_in.shape)
+        q_in_shape[0] = in_val.shape[0]
+        q_in = self.q_in.expand(*q_in_shape)
+        
+        x = self.encoder(q_in, in_val)
+        
+        q_out_shape = list(self.q_out.shape)
+        q_out_shape[0] = in_val.shape[0]
+        q_out = self.q_out.expand(*q_out_shape)
+        
+        x = self.out_cross((q_out, x))
+        
         return x
 
 class ImagesPreprocess(torch.nn.Module): # performs embedding and positional/temporal encoding
