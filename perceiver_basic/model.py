@@ -127,11 +127,13 @@ class SelfAttention(torch.nn.Module):
     def forward(self, in_val):
         x = in_val
         attn = self.in_norm(in_val)
+        #attn = x
         attn, _ = self.attn(attn, attn, attn)
         attn = self.dropout(attn)
         x = x + attn
 
         mlp = self.mlp_norm(x)
+        #mlp = x
         mlp = self.mlp(mlp)
         mlp = self.dropout(mlp)
         x = x + mlp
@@ -152,8 +154,8 @@ class CrossAttention(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=p_dropout)
         self.skip_att = skip_att
         
-        self.q_channels = q_channels
-        self.kv_channels = kv_channels
+#         self.q_channels = q_channels
+#         self.kv_channels = kv_channels
 
     def forward(self, q_kv):
         q, kv = q_kv
@@ -164,6 +166,7 @@ class CrossAttention(torch.nn.Module):
 #         print(self.q_channels, self.kv_channels)
 #         print()
         attn, _ = self.attn(q, kv, kv)
+        #attn = self.attn(q, kv, kv)
         attn = self.dropout(attn)
         if self.skip_att:
             x = x + attn
@@ -171,9 +174,11 @@ class CrossAttention(torch.nn.Module):
             x = attn
 
         mlp = self.mlp_norm(x)
+        #mlp = x
         mlp = self.mlp(mlp)
         mlp = self.dropout(mlp)
         x = x + mlp
+        #x = mlp
 
         return x
 
@@ -182,10 +187,10 @@ class PerceiverEncoder(torch.nn.Module):
         super().__init__()
         self.repeat_count = repeat_count
 
-        latentBlocks = [SelfAttention(n, q_channels, heads, wide_factor, p_dropout) for _ in range(latent_count)]
+        self.latentBlocks = [SelfAttention(n, q_channels, heads, wide_factor, p_dropout) for _ in range(latent_count)]
         self.block = torch.nn.Sequential(
-            CrossAttention(n, q_channels, kv_channels, heads, wide_factor, p_dropout),
-            *latentBlocks
+            CrossAttention(n, q_channels, kv_channels, heads, wide_factor, p_dropout, skip_att=True),
+            *self.latentBlocks
         )
     
     def forward(self, q, kv):
@@ -202,10 +207,12 @@ class PerceiverInternal(torch.nn.Module):
         q_in = torch.zeros([1, *latent_dim])
         torch.nn.init.xavier_normal_(q_in)
         self.q_in = torch.nn.Parameter(q_in)
+        #print(torch.numel(q_in))
 
         q_out = torch.zeros([1, *q_out_dim])
         torch.nn.init.xavier_normal_(q_out)
         self.q_out = torch.nn.Parameter(q_out)
+        #print(torch.numel(q_out))
 
         self.out_cross = CrossAttention(n=q_out_dim[0], q_channels=q_out_dim[1], kv_channels=latent_dim[1], heads=heads, wide_factor=wide_factor, p_dropout=p_dropout, skip_att=False)
 
@@ -220,6 +227,8 @@ class PerceiverInternal(torch.nn.Module):
         q_out_shape[0] = in_val.shape[0]
         q_out = self.q_out.expand(*q_out_shape)
         
+#         flatten = torch.nn.Flatten()
+#         x = flatten(x)
         x = self.out_cross((q_out, x))
         
         return x
