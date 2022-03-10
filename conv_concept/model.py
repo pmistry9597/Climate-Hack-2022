@@ -102,9 +102,11 @@ class ConvConcept(torch.nn.Module):
             encodings.append(y)
         #print(encodings[0].shape)
         x = torch.stack(encodings)
+        print(x.shape)
         x = self.gelu(x)
         x = x.squeeze()
         x = self.encodeFlatten(x)
+        print(x.shape)
 
         x = self.mainFF(x)
         x = x.view([-1, 1024])
@@ -126,7 +128,7 @@ class ConvConcept(torch.nn.Module):
 
             #y = self.decoder(y)
             y = self.denseDecode(y)
-            y = y.view([-1, 24, 64, 64])
+            y = y.view([24, 64, 64])
 
             #y = self.decodeFinal(y) #no activation, we're gonna use sigmoid at the end
             y = y.squeeze()
