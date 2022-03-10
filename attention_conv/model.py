@@ -168,6 +168,13 @@ class Transformer(torch.nn.Module):
                 out_array = out_array.transpose(0,1) # out_pos x batch_len x dims
                 out_array[decode_pos] = latentCode
                 out_array = out_array.transpose(0,1) # batch_len x out_pos x dims
-                print(latentCode.shape)
 
         return out_array
+
+class AttentionConv(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.encoder = ImageEncoder([1, 32, 64, 128], kernel_size=3)
+        self.decoder = ImageDecoder()
+        self.transformer = Transformer(512, 2048, 8, encode_blocks=6, seq_len=12, out_seq_len=24)
