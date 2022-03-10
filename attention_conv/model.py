@@ -73,7 +73,7 @@ class TransformerEncoder(torch.nn.Module):
     def forward(self, in_val):
         premh = in_val
         x, _ = self.multihead(in_val, in_val, in_val)
-        print(x.shape)
+#         print(x.shape)
         x = x + premh
         x = self.multihead_norm(x)
 
@@ -103,7 +103,7 @@ class TransformerDecoder(torch.nn.Module):
         x = x + premh_masked
         x = self.masked_mh_norm(x)
 
-        print(x.shape, encoding.shape)
+#         print(x.shape, encoding.shape)
         premh = x.clone()
         x, _ = self.multihead(x, encoding, encoding)
         x = x + premh
