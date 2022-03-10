@@ -61,15 +61,24 @@ class ConvConcept(torch.nn.Module):
         indivFFs = [PWFF(1024, 2048, 512) for _ in range(24)]
         self.indivFFs = torch.nn.ModuleList(indivFFs)
 
-        out_channels = [256, 128, 32]
+        out_channels = [256, 128, 64, 32, 16]
         out_kernel = 3
-        out_stride = 6
+        out_stride = 3
         self.decoder = ImageDecoder(out_channels, out_kernel, out_stride)
         self.decodeInit = torch.nn.ConvTranspose2d(512, 256, kernel_size=3, stride=1)
-        self.decodeFinal = torch.nn.ConvTranspose2d(32, 1, kernel_size=6)
+        self.decodeFinal = torch.nn.Sequential(
+            torch.nn.Conv2d(16, 8, kernel_size=20, stride=1),
+            torch.nn.Conv2d(8, 1, kernel_size=1, stride=1),
+        )
+
+        self.gelu = torch.nn.GELU()
+        self.sigmoid = torch.nn.Sigmoid()
+        self.range = 1024.0
     
     def forward(self, x):
         x = x.view([-1, 12, 128, 128])
+        x = x / self.range
+
         encodings = []
         for sample in x:
             y = self.encoder(sample)
@@ -77,6 +86,7 @@ class ConvConcept(torch.nn.Module):
             encodings.append(y)
         #print(encodings[0].shape)
         x = torch.stack(encodings)
+        x = self.gelu(x)
         x = x.squeeze()
         x = self.encodeFlatten(x)
 
@@ -95,10 +105,13 @@ class ConvConcept(torch.nn.Module):
         for latent in x:
             y = latent.view([24, 512, 1, 1])
             y = self.decodeInit(y)
+            y = self.gelu(y)
             y = self.decoder(y)
-            y = self.decodeFinal(y)
+            y = self.decodeFinal(y) #no activation, we're gonna use sigmoid at the end
             y = y.squeeze()
             transposeOuts.append(y)
         x = torch.stack(transposeOuts)
+
+        x = self.sigmoid(x) * self.range
 
         return x
