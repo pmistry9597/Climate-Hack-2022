@@ -79,6 +79,13 @@ class ConvConcept(torch.nn.Module):
         #     torch.nn.Conv2d(16, 8, kernel_size=20, stride=1),
         #     torch.nn.Conv2d(8, 1, kernel_size=1, stride=1),
         # )
+        self.denseDecode = torch.nn.Sequential(
+            torch.nn.Linear(512, 1024),
+            torch.nn.GELU(),
+            torch.nn.Linear(1024, 2048),
+            torch.nn.GELU(),
+            torch.nn.Linear(2048, 64*64),
+        )
 
         self.gelu = torch.nn.GELU()
         self.sigmoid = torch.nn.Sigmoid()
@@ -112,14 +119,20 @@ class ConvConcept(torch.nn.Module):
 
         transposeOuts = []
         for latent in x:
-            y = latent.view([24, 512, 1, 1])
+            y = latent
+            #y = y.view([24, 512, 1, 1])
             #y = self.decodeInit(y)
             #y = self.gelu(y)
-            y = self.decoder(y)
+
+            #y = self.decoder(y)
+            y = self.denseDecode(y)
+            y = y.view([-1, 24, 64, 64])
+
             #y = self.decodeFinal(y) #no activation, we're gonna use sigmoid at the end
             y = y.squeeze()
             transposeOuts.append(y)
         x = torch.stack(transposeOuts)
+        x = x.squeeze()
 
         x = self.sigmoid(x) * self.range
 
