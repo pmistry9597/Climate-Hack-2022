@@ -30,17 +30,26 @@ class PWFF(torch.nn.Module):
         return x
 
 class ImageDecoder(torch.nn.Module):
-    def __init__(self, channel_list, kernel_size, stride):
+    def __init__(self):
         super().__init__()
-        
-        convLayers = []
-        for i in range(len(channel_list)-1):
-            conv = torch.nn.ConvTranspose2d(channel_list[i], channel_list[i+1], kernel_size=kernel_size, padding=kernel_size-1, stride=stride)
-            convLayers.append(conv)
-            if i != len(channel_list)-2:
-                act = torch.nn.GELU()
-                convLayers.append(act)
-        self.block = torch.nn.Sequential(*convLayers)
+        self.block = torch.nn.Sequential( #last layer will get activated via outside since its outputting
+            torch.nn.Upsample(scale_factor=8, mode='bilinear'),
+            torch.nn.Conv2d(512, 256, kernel_size=3),
+            torch.nn.GELU(),
+            torch.nn.Upsample(scale_factor=2, mode='bilinear'),
+            torch.nn.Conv2d(256, 128, kernel_size=3),
+            torch.nn.GELU(),
+            torch.nn.Upsample(scale_factor=2, mode='bilinear'),
+            torch.nn.Conv2d(128, 64, kernel_size=3),
+            torch.nn.GELU(),
+            torch.nn.Upsample(scale_factor=2, mode='bilinear'),
+            torch.nn.Conv2d(64, 32, kernel_size=3),
+            torch.nn.GELU(),     
+            torch.nn.Upsample(scale_factor=2, mode='bilinear'),
+            torch.nn.Conv2d(32, 16, kernel_size=3),
+            torch.nn.GELU(),
+            torch.nn.Conv2d(16, 1, kernel_size=3),
+        )
 
     def forward(self, x):
         return self.block(x)
@@ -61,15 +70,15 @@ class ConvConcept(torch.nn.Module):
         indivFFs = [PWFF(1024, 2048, 512) for _ in range(24)]
         self.indivFFs = torch.nn.ModuleList(indivFFs)
 
-        out_channels = [256, 128, 64, 32, 16]
-        out_kernel = 3
-        out_stride = 3
-        self.decoder = ImageDecoder(out_channels, out_kernel, out_stride)
-        self.decodeInit = torch.nn.ConvTranspose2d(512, 256, kernel_size=3, stride=1)
-        self.decodeFinal = torch.nn.Sequential(
-            torch.nn.Conv2d(16, 8, kernel_size=20, stride=1),
-            torch.nn.Conv2d(8, 1, kernel_size=1, stride=1),
-        )
+        # out_channels = [256, 128, 64, 32, 16]
+        # out_kernel = 3
+        # out_stride = 3
+        self.decoder = ImageDecoder() #ImageDecoder(out_channels, out_kernel, out_stride)
+        #self.decodeInit = torch.nn.ConvTranspose2d(512, 256, kernel_size=3, stride=1)
+        # self.decodeFinal = torch.nn.Sequential(
+        #     torch.nn.Conv2d(16, 8, kernel_size=20, stride=1),
+        #     torch.nn.Conv2d(8, 1, kernel_size=1, stride=1),
+        # )
 
         self.gelu = torch.nn.GELU()
         self.sigmoid = torch.nn.Sigmoid()
@@ -104,10 +113,10 @@ class ConvConcept(torch.nn.Module):
         transposeOuts = []
         for latent in x:
             y = latent.view([24, 512, 1, 1])
-            y = self.decodeInit(y)
-            y = self.gelu(y)
+            #y = self.decodeInit(y)
+            #y = self.gelu(y)
             y = self.decoder(y)
-            y = self.decodeFinal(y) #no activation, we're gonna use sigmoid at the end
+            #y = self.decodeFinal(y) #no activation, we're gonna use sigmoid at the end
             y = y.squeeze()
             transposeOuts.append(y)
         x = torch.stack(transposeOuts)
