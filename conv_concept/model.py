@@ -1,0 +1,104 @@
+import torch
+
+class ImageEncoder(torch.nn.Module):
+    def __init__(self, channel_list, kernel_size, stride=1):
+        super().__init__()
+
+        convLayers = []
+        for i in range(len(channel_list)-1):
+            conv = torch.nn.Conv2d(channel_list[i], channel_list[i+1], kernel_size=kernel_size, padding=kernel_size-1, stride=stride)
+            convLayers.append(conv)
+            act = torch.nn.GELU()
+            convLayers.append(act)
+        self.block = torch.nn.Sequential(*convLayers)
+
+    def forward(self, x):
+        x = x.view([-1, 1, 128, 128])
+        return self.block(x)
+
+class PWFF(torch.nn.Module):
+    def __init__(self, in_chan, inner_chan, out_chan):
+        super().__init__()
+        self.lin_in = torch.nn.Linear(in_chan, inner_chan)
+        self.gelu = torch.nn.GELU()
+        self.lin_out = torch.nn.Linear(inner_chan, out_chan)
+
+    def forward(self, x):
+        x = self.lin_in(x)
+        x = self.gelu(x)
+        x = self.lin_out(x)
+        return x
+
+class ImageDecoder(torch.nn.Module):
+    def __init__(self, channel_list, kernel_size, stride):
+        super().__init__()
+        
+        convLayers = []
+        for i in range(len(channel_list)-1):
+            conv = torch.nn.ConvTranspose2d(channel_list[i], channel_list[i+1], kernel_size=kernel_size, padding=kernel_size-1, stride=stride)
+            convLayers.append(conv)
+            if i != len(channel_list)-2:
+                act = torch.nn.GELU()
+                convLayers.append(act)
+        self.block = torch.nn.Sequential(*convLayers)
+
+    def forward(self, x):
+        return self.block(x)
+
+class ConvConcept(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        in_channels = [1, 8, 32, 64, 128, 256]
+        in_kernel = 3
+        in_stride = 3
+        self.encoder = ImageEncoder(in_channels, in_kernel, in_stride)
+        self.encodeFinal = torch.nn.Conv2d(256, 512, kernel_size=2)
+        self.encodeFlatten = torch.nn.Flatten(start_dim=-2, end_dim=-1)
+
+        self.mainFF = PWFF(6144, 6144, 1024)
+
+        indivFFs = [PWFF(1024, 2048, 512) for _ in range(24)]
+        self.indivFFs = torch.nn.ModuleList(indivFFs)
+
+        out_channels = [256, 128, 32]
+        out_kernel = 3
+        out_stride = 6
+        self.decoder = ImageDecoder(out_channels, out_kernel, out_stride)
+        self.decodeInit = torch.nn.ConvTranspose2d(512, 256, kernel_size=3, stride=1)
+        self.decodeFinal = torch.nn.ConvTranspose2d(32, 1, kernel_size=6)
+    
+    def forward(self, x):
+        x = x.view([-1, 12, 128, 128])
+        encodings = []
+        for sample in x:
+            y = self.encoder(sample)
+            y = self.encodeFinal(y)
+            encodings.append(y)
+        #print(encodings[0].shape)
+        x = torch.stack(encodings)
+        x = x.squeeze()
+        x = self.encodeFlatten(x)
+
+        x = self.mainFF(x)
+        x = x.view([-1, 1024])
+
+        #individual computations for each latent space of output image, 24 in total
+        indivLatents = []
+        for indivFF in self.indivFFs:
+            indivLatents.append(indivFF(x))
+        x = torch.stack(indivLatents)
+        #dims are 12, batch_size, blah in x rn
+        x = x.transpose(0, 1)
+
+        transposeOuts = []
+        for latent in x:
+            y = latent.view([24, 512, 1, 1])
+            y = self.decodeInit(y)
+            y = self.decoder(y)
+            y = self.decodeFinal(y)
+            y = y.squeeze()
+            transposeOuts.append(y)
+        x = torch.stack(transposeOuts)
+
+        return x
