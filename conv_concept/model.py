@@ -53,7 +53,7 @@ class ImageDecoder(torch.nn.Module):
         self.main = torch.nn.Sequential(
             # nz will be the input to the first convolution
             torch.nn.ConvTranspose2d(
-                512, 256, kernel_size=5, 
+                1024, 256, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(512),
             torch.nn.LeakyReLU(),
@@ -90,25 +90,27 @@ class ConvConcept(torch.nn.Module):
 
         self.mainFF = PWFF(6144, 6144, 1024)
 
-        indivFFs = [PWFF(1024, 2048, 512) for _ in range(24)]
-        self.indivFFs = torch.nn.ModuleList(indivFFs)
+        # indivFFs = [PWFF(1024, 2048, 512) for _ in range(24)]
+        # self.indivFFs = torch.nn.ModuleList(indivFFs)
 
+        decoders = [ImageDecoder() for _ in range(24)]
+        self.decoders = torch.nn.ModuleList(decoders)
         # out_channels = [256, 128, 64, 32, 16]
         # out_kernel = 3
         # out_stride = 3
-        self.decoder = ImageDecoder() #ImageDecoder(out_channels, out_kernel, out_stride)
+        #self.decoder = ImageDecoder() #ImageDecoder(out_channels, out_kernel, out_stride)
         #self.decodeInit = torch.nn.ConvTranspose2d(512, 256, kernel_size=3, stride=1)
         # self.decodeFinal = torch.nn.Sequential(
         #     torch.nn.Conv2d(16, 8, kernel_size=20, stride=1),
         #     torch.nn.Conv2d(8, 1, kernel_size=1, stride=1),
         # )
-        self.denseDecode = torch.nn.Sequential(
-            torch.nn.Linear(512, 1024),
-            torch.nn.GELU(),
-            torch.nn.Linear(1024, 2048),
-            torch.nn.GELU(),
-            torch.nn.Linear(2048, 64*64),
-        )
+        # self.denseDecode = torch.nn.Sequential(
+        #     torch.nn.Linear(512, 1024),
+        #     torch.nn.GELU(),
+        #     torch.nn.Linear(1024, 2048),
+        #     torch.nn.GELU(),
+        #     torch.nn.Linear(2048, 64*64),
+        # )
 
         self.gelu = torch.nn.GELU()
         self.sigmoid = torch.nn.Sigmoid()
@@ -132,31 +134,39 @@ class ConvConcept(torch.nn.Module):
         #print(x.shape)
 
         x = self.mainFF(x)
-        x = x.view([-1, 1024])
+        # x = x.view([-1, 1024])
+        x = x.view([-1, 1024, 1, 1])
 
         #individual computations for each latent space of output image, 24 in total
-        indivLatents = []
-        for indivFF in self.indivFFs:
-            indivLatents.append(indivFF(x))
-        x = torch.stack(indivLatents)
+        # indivLatents = []
+        # for indivFF in self.indivFFs:
+        #     indivLatents.append(indivFF(x))
+        # x = torch.stack(indivLatents)
         #dims are 12, batch_size, blah in x rn
+        # x = x.transpose(0, 1)
+
+        decode_outs = []
+        for decoder in self.decoders:
+            decode_outs.append(decoder(x))
+        x = torch.stack(decode_outs)
+        #print(x.shape)
         x = x.transpose(0, 1)
 
-        transposeOuts = []
-        for latent in x:
-            y = latent
-            y = y.view([24, 512, 1, 1])
-            #y = self.decodeInit(y)
-            #y = self.gelu(y)
+        # transposeOuts = []
+        # for latent in x:
+        #     y = latent
+        #     y = y.view([24, 512, 1, 1])
+        #     #y = self.decodeInit(y)
+        #     #y = self.gelu(y)
 
-            y = self.decoder(y)
-            #y = self.denseDecode(y)
-            #y = y.view([-1, 24, 64, 64])
+        #     y = self.decoder(y)
+        #     #y = self.denseDecode(y)
+        #     #y = y.view([-1, 24, 64, 64])
 
-            #y = self.decodeFinal(y) #no activation, we're gonna use sigmoid at the end
-            y = y.squeeze()
-            transposeOuts.append(y)
-        x = torch.stack(transposeOuts)
+        #     #y = self.decodeFinal(y) #no activation, we're gonna use sigmoid at the end
+        #     y = y.squeeze()
+        #     transposeOuts.append(y)
+        #x = torch.stack(transposeOuts)
         x = x.squeeze()
 
         x = self.sigmoid(x) * self.range
