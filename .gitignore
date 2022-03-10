@@ -166,6 +166,7 @@ submission/curr_model
 ## state dicts over time
 basic_models/
 basic_perceiver_models/
+conv_concept_models/
 ## faster, compressed numpy array
 uk_data_np/
 ## doing dumb tests basically
