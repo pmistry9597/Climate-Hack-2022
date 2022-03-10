@@ -150,20 +150,24 @@ class Transformer(torch.nn.Module):
                     encoding[seq, dim] = math.sin(seq / 10000.0 ** (dim/dims))
                 else:
                     encoding[seq, dim] = math.cos(seq / 10000.0 ** (dim/dims))
+        
+        return encoding
     
     def forward(self, in_seq):
         x = in_seq + self.in_pe
         encoding = self.encoders(x)
 
-        out_array = torch.zeros([in_seq[0], self.out_seq_len, self.dims]) #zeros represents padding
+        out_array = torch.zeros([in_seq.shape[0], self.out_seq_len, self.dims]) #zeros represents padding
 
         #fill er up!!
         for entry_no in range(len(out_array)):
             for decode_pos, decoder in enumerate(self.decoders):
                 decodeOut = decoder(out_array, encoding, entry_no)
+                decodeOut = self.decodeFlatten(decodeOut)
                 latentCode = self.decodeLinOut(decodeOut)
                 out_array = out_array.transpose(0,1) # out_pos x batch_len x dims
                 out_array[decode_pos] = latentCode
                 out_array = out_array.transpose(0,1) # batch_len x out_pos x dims
+                print(latentCode.shape)
 
         return out_array
