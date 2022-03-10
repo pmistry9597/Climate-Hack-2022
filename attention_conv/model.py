@@ -1,4 +1,5 @@
 import torch
+import math
 
 class ImageEncoder(torch.nn.Module):
     def __init__(self, channel_list, kernel_size, stride=1):
@@ -97,8 +98,8 @@ class TransformerDecoder(torch.nn.Module):
         self.masked_mh_norm = torch.nn.LayerNorm(dims)
         self.masked_multihead = torch.nn.MultiheadAttention(dims, heads, batch_first=True)
 
-    def forward(self, latents, encoding, pad_len):
-        mask = [i < pad_len for i in range(latents.shape[1])]
+    def forward(self, latents, encoding, unpadded_len):
+        mask = [i >= unpadded_len for i in range(latents.shape[1])]
         mask = torch.tensor(mask).unsqueeze(0)
         mask = mask.expand(latents.shape[0], -1)
 
@@ -119,3 +120,50 @@ class TransformerDecoder(torch.nn.Module):
         x = self.ff_norm(x)
 
         return x
+
+class Transformer(torch.nn.Module):
+    def __init__(self, dims, ff_width, heads, encode_blocks, seq_len, out_seq_len):
+        super().__init__()
+
+        encoders = [TransformerEncoder(dims, ff_width, heads) for _ in range(encode_blocks)]
+        self.encoders = torch.nn.Sequential(
+            *encoders
+        )
+
+        decoders = [TransformerDecoder(dims, ff_width, heads) for _ in range(encode_blocks)]
+        self.decoders = torch.nn.ModuleList(decoders)
+
+        self.in_pe = self._generate_pe(seq_len, dims)
+        self.out_pe = self._generate_pe(out_seq_len, dims)
+
+        self.decodeFlatten = torch.nn.Flatten()
+        self.decodeLinOut = torch.nn.Linear(out_seq_len * dims, dims)
+
+        self.dims = dims
+        self.out_seq_len = out_seq_len
+
+    def _generate_pe(self, seq_len, dims):
+        encoding = torch.empty([seq_len, dims])
+        for seq in range(encoding.shape[0]):
+            for dim in range(encoding.shape[1]):
+                if dim % 2 == 0:
+                    encoding[seq, dim] = math.sin(seq / 10000.0 ** (dim/dims))
+                else:
+                    encoding[seq, dim] = math.cos(seq / 10000.0 ** (dim/dims))
+    
+    def forward(self, in_seq):
+        x = in_seq + self.in_pe
+        encoding = self.encoders(x)
+
+        out_array = torch.zeros([in_seq[0], self.out_seq_len, self.dims]) #zeros represents padding
+
+        #fill er up!!
+        for entry_no in range(len(out_array)):
+            for decode_pos, decoder in enumerate(self.decoders):
+                decodeOut = decoder(out_array, encoding, entry_no)
+                latentCode = self.decodeLinOut(decodeOut)
+                out_array = out_array.transpose(0,1) # out_pos x batch_len x dims
+                out_array[decode_pos] = latentCode
+                out_array = out_array.transpose(0,1) # batch_len x out_pos x dims
+
+        return out_array
