@@ -98,7 +98,7 @@ class TransformerDecoder(torch.nn.Module):
         self.masked_multihead = torch.nn.MultiheadAttention(dims, heads, batch_first=True)
 
     def forward(self, latents, encoding, pad_len):
-        mask = [i < pad_len for i in range(pad_len)]
+        mask = [i < pad_len for i in range(latents.shape[1])]
         mask = torch.tensor(mask).unsqueeze(0)
         mask = mask.expand(latents.shape[0], -1)
 
