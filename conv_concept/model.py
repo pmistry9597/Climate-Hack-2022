@@ -53,7 +53,7 @@ class ImageDecoder(torch.nn.Module):
         self.main = torch.nn.Sequential(
             # nz will be the input to the first convolution
             torch.nn.ConvTranspose2d(
-                6144, 256, kernel_size=5, 
+                12*256*4, 256, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(512),
             torch.nn.LeakyReLU(),
@@ -84,15 +84,17 @@ class ConvConcept(torch.nn.Module):
         in_channels = [1, 8, 32, 64, 128, 256]
         in_kernel = 3
         in_stride = 3
-        # self.encoder = ImageEncoder(in_channels, in_kernel, in_stride)
+        self.encoder = ImageEncoder(in_channels, in_kernel, in_stride)
         # self.encodeFinal = torch.nn.Conv2d(256, 512, kernel_size=2)
-        encoders = [
-            torch.nn.Sequential(ImageEncoder(in_channels, in_kernel, in_stride), torch.nn.Conv2d(256, 512, kernel_size=2)) for _ in range(12)
-        ]
-        self.encoders = torch.nn.ModuleList(encoders)
-        self.encodeFlatten = torch.nn.Flatten(start_dim=-2, end_dim=-1)
+        # encoders = [
+        #     torch.nn.Sequential(ImageEncoder(in_channels, in_kernel, in_stride)) for _ in range(12)
+        # ]
+        # self.encoders = torch.nn.ModuleList(encoders)
+        # self.encodeFlatten = torch.nn.Flatten(start_dim=-2, end_dim=-1)
+        self.encodeFlatten = torch.nn.Flatten(start_dim=-3, end_dim=-1)
+        
 
-        self.mainFF = PWFF(6144, 6144, 1024)
+        # self.mainFF = PWFF(6144, 6144, 1024)
 
         # indivFFs = [PWFF(1024, 2048, 512) for _ in range(24)]
         # self.indivFFs = torch.nn.ModuleList(indivFFs)
@@ -125,19 +127,20 @@ class ConvConcept(torch.nn.Module):
         x = x / self.range
 
         encodings = []
-        x = x.transpose(0, 1)
-        for batch, encoder in zip(x, self.encoders):
-            encoding = encoder(batch)
-            encodings.append(encoding)
-        # for sample in x:
-        #     y = self.encoder(sample)
-        #     y = self.encodeFinal(y)
-        #     encodings.append(y)
+        # x = x.transpose(0, 1)
+        # for batch, encoder in zip(x, self.encoders):
+        #     encoding = encoder(batch)
+        #     encodings.append(encoding)
+        for sample in x:
+            y = self.encoder(sample)
+            # y = self.encodeFinal(y)
+            encodings.append(y)
         #print(encodings[0].shape)
         x = torch.stack(encodings)
-        x = x.transpose(0, 1)
+
+        # x = x.transpose(0, 1)
         #print(x.shape)
-        x = self.gelu(x)
+        # x = self.gelu(x)
         x = x.squeeze()
         x = self.encodeFlatten(x)
         #print(x.shape)
@@ -145,7 +148,8 @@ class ConvConcept(torch.nn.Module):
         # x = self.mainFF(x)
         # # x = x.view([-1, 1024])
         #x = x.view([-1, 1024, 1, 1])
-        x = x.view([-1, 6144, 1, 1])
+        x = x.view([-1, 12*256*4, 1, 1])
+        print(x.shape)
 
         #individual computations for each latent space of output image, 24 in total
         # indivLatents = []
