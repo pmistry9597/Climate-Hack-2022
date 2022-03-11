@@ -143,6 +143,8 @@ class Transformer(torch.nn.Module):
 
         self.decodeFlatten = torch.nn.Flatten()
         self.decodeLinOut = torch.nn.Linear(out_seq_len * dims, dims)
+        
+        self.tanh = torch.nn.Tanh()
 
         self.dims = dims
         self.out_seq_len = out_seq_len
@@ -152,24 +154,26 @@ class Transformer(torch.nn.Module):
         for seq in range(encoding.shape[0]):
             for dim in range(encoding.shape[1]):
                 if dim % 2 == 0:
-                    encoding[seq, dim] = math.sin(seq / 10000.0 ** (dim/dims))
+                    encoding[seq, dim] = math.sin(seq / 10000.0 ** (dim/float(dims)))
                 else:
-                    encoding[seq, dim] = math.cos(seq / 10000.0 ** (dim/dims))
+                    encoding[seq, dim] = math.cos(seq / 10000.0 ** ((dim-1)/float(dims)))
         encoding = encoding.unsqueeze(0)
         
         return encoding
     
     def forward(self, in_seq):
         in_pe = self.in_pe.expand(in_seq.shape[0], -1, -1)
-        x = in_seq + in_pe
+        x = self.tanh(in_seq) + in_pe
+#         x = in_seq + in_pe
+#         print(x)
         encoding = self.encoders(x)
 
-        out_array = torch.zeros([in_seq.shape[0], self.out_seq_len, self.dims], device=in_pe.device) #zeros represents padding
-
+        #out_array = torch.zeros([in_seq.shape[0], self.out_seq_len, self.dims], device=in_pe.device) #zeros represents padding
+        out_array = self.out_pe.expand(in_seq.shape[0], -1, -1).clone()
+        #out_array = out_array + out_pe #add positional encoding to input of decoder
+        
         #fill er up!!
         for entry_no in range(self.out_seq_len): #for each entry in the resulting out_array
-            out_pe = self.out_pe.expand(in_seq.shape[0], -1, -1)
-            out_array = out_array + out_pe #add positional encoding to input of decoder
             entryOut = out_array.clone()
             
             for decode_pos, decoder in enumerate(self.decoders): #decoder processing block
@@ -177,11 +181,13 @@ class Transformer(torch.nn.Module):
             
             decodeOut = self.decodeFlatten(entryOut)
             latentCode = self.decodeLinOut(decodeOut)
+            latentCode = self.tanh(latentCode)
+#             print(latentCode.shape)
             
             out_array = out_array.transpose(0,1) # out_pos x batch_len x dims
-            out_array[entry_no] = latentCode
+            out_array[entry_no] += latentCode
             out_array = out_array.transpose(0,1) # batch_len x out_pos x dims
-
+        
         return out_array
 
 class AttentionConv(torch.nn.Module):
@@ -202,10 +208,13 @@ class AttentionConv(torch.nn.Module):
             encoding = self.encoder(sample)
             encodings.append(encoding)
         encodings = torch.stack(encodings)
-           
+        
+        #print(encodings.shape)
         x = encodings.view([-1, 12, 512])
         x = self.transformer(x)
+        #print(torch.mean(x))
         x = x.view([-1, 24, 512, 1, 1])
+        #print(torch.mean(x))
         outs = []
         for latent in x:
             out = self.decoder(latent)
