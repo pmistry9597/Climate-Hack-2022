@@ -163,8 +163,8 @@ class Transformer(torch.nn.Module):
     
     def forward(self, in_seq):
         in_pe = self.in_pe.expand(in_seq.shape[0], -1, -1)
-        x = self.tanh(in_seq) + in_pe
-#         x = in_seq + in_pe
+#         x = self.tanh(in_seq) + in_pe
+        x = in_seq + in_pe
 #         print(x)
         encoding = self.encoders(x)
 
@@ -181,7 +181,7 @@ class Transformer(torch.nn.Module):
             
             decodeOut = self.decodeFlatten(entryOut)
             latentCode = self.decodeLinOut(decodeOut)
-            latentCode = self.tanh(latentCode)
+#             latentCode = self.tanh(latentCode)
 #             print(latentCode.shape)
             
             out_array = out_array.transpose(0,1) # out_pos x batch_len x dims
