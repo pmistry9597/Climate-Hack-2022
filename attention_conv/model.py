@@ -9,8 +9,9 @@ class ImageEncoder(torch.nn.Module):
         for i in range(len(channel_list)-1):
             conv = torch.nn.Conv2d(channel_list[i], channel_list[i+1], kernel_size=kernel_size, stride=stride)
             convLayers.append(conv)
-            act = torch.nn.GELU()
-            convLayers.append(act)
+            if i != len(channel_list)-2:
+                act = torch.nn.GELU()
+                convLayers.append(act)
         self.block = torch.nn.Sequential(*convLayers)
 
     def forward(self, x):
