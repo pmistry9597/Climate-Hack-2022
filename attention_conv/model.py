@@ -10,7 +10,7 @@ class ImageEncoder(torch.nn.Module):
             conv = torch.nn.Conv2d(channel_list[i], channel_list[i+1], kernel_size=kernel_size, stride=stride)
             convLayers.append(conv)
             if i != len(channel_list)-2:
-                act = torch.nn.GELU()
+                act = torch.nn.Tanh()
                 convLayers.append(act)
         self.block = torch.nn.Sequential(*convLayers)
 
@@ -24,22 +24,22 @@ class ImageDecoder(torch.nn.Module):
         self.main = torch.nn.Sequential(
             # nz will be the input to the first convolution
             torch.nn.ConvTranspose2d(
-                512, 256, kernel_size=5, 
+                2048, 1024, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(512),
-            torch.nn.LeakyReLU(),
+            torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                256, 128, kernel_size=5, 
+                1024, 512, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(256),
-            torch.nn.LeakyReLU(),
+            torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                128, 64, kernel_size=5, 
+                512, 256, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(128),
-            torch.nn.LeakyReLU(),
+            torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                64, final_channels, kernel_size=5, 
+                256, final_channels, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(64),
         )
@@ -52,16 +52,16 @@ class ImageDecoder128(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.decodeInit = ImageDecoder(final_channels=32)
+        self.decodeInit = ImageDecoder(final_channels=128)
 
         self.decodeFinal = torch.nn.Sequential(
-            torch.nn.LeakyReLU(),
+            torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                32, 16, kernel_size=5, 
+                128, 64, kernel_size=5, 
                 stride=2, padding=0, bias=False),
-                torch.nn.LeakyReLU(),
+            torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                16, 1, kernel_size=4, 
+                64, 1, kernel_size=4, 
                 stride=1, padding=0, bias=False),
         )
 
@@ -75,12 +75,14 @@ class PWFF(torch.nn.Module):
         if out_chan == None:
             out_chan = in_chan
         self.lin_in = torch.nn.Linear(in_chan, inner_chan)
-        self.gelu = torch.nn.GELU()
+#         self.gelu = torch.nn.GELU()
+        self.tanh = torch.nn.Tanh()
         self.lin_out = torch.nn.Linear(inner_chan, out_chan)
 
     def forward(self, x):
         x = self.lin_in(x)
-        x = self.gelu(x)
+#         x = self.gelu(x)
+        x = self.tanh(x)
         x = self.lin_out(x)
         return x
 
@@ -216,9 +218,9 @@ class AttentionConv(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.encoder = ImageEncoder([1, 16, 32, 64, 128, 256, 512], kernel_size=3, stride=2)
-        self.decoder = ImageDecoder()
-        self.transformer = Transformer(512, 2048, 8, encode_blocks=6, seq_len=12, out_seq_len=24)
+        self.encoder = ImageEncoder([1, 64, 128, 256, 512, 1024, 2048], kernel_size=3, stride=2)
+        self.decoder = ImageDecoder128()
+        self.transformer = Transformer(2048, 8192, 8, encode_blocks=6, seq_len=12, out_seq_len=24)
         self.range = 1024.0
         self.sigmoid = torch.nn.Sigmoid()
         
@@ -232,10 +234,10 @@ class AttentionConv(torch.nn.Module):
         encodings = torch.stack(encodings)
         
         #print(encodings.shape)
-        x = encodings.view([-1, 12, 512])
+        x = encodings.view([-1, 12, 2048])
         x = self.transformer(x)
         #print(torch.mean(x))
-        x = x.view([-1, 24, 512, 1, 1])
+        x = x.view([-1, 24, 2048, 1, 1])
         #print(torch.mean(x))
         outs = []
         for latent in x:
@@ -244,6 +246,10 @@ class AttentionConv(torch.nn.Module):
             outs.append(out)
         outs = torch.stack(outs)
         x = outs.squeeze()
+        if len(x.shape) == 3:
+            x = x.unsqueeze(0)
+        #print(x.shape)
+        x = x[:, :, 128//2 - 64//2: 128//2 + 64//2, 128//2 - 64//2: 128//2 + 64//2]
         
         x = self.sigmoid(x) * self.range
         

@@ -26,7 +26,7 @@ class ImageSet(torch.utils.data.Dataset):
         return len(self.corner_and_idxs)
 
     def _crop(self, section, corner, width):
-        return section[:, corner[0]:corner[0]+width, corner[1]:corner[1]+width]
+        return section[corner[0]:corner[0]+width, corner[1]:corner[1]+width]
     
     def _in_crop(self, section, corner):
         return self._crop(section, corner, self.in_width)

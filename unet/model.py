@@ -41,22 +41,22 @@ class UNet(torch.nn.Module):
         self.maxpool = torch.nn.MaxPool2d(kernel_size=2)
         
         # down sample convolutions
-        self.inConv = DoubleConv(12, 128)
-        self.downConv0 = DoubleConv(128, 256)
-        self.downConv1 = DoubleConv(256, 512)
-        self.downConv2 = DoubleConv(512, 1024)
+        self.inConv = DoubleConv(12, 256)
+        self.downConv0 = DoubleConv(256, 1024)
+        self.downConv1 = DoubleConv(1024, 4096)
+        self.downConv2 = DoubleConv(4096, 16384)
         
         # upsample portion of network
-        self.upSample0 = torch.nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-        self.upConv0 = DoubleConv(1024, 512)
+        self.upSample0 = torch.nn.ConvTranspose2d(16384, 4096, kernel_size=2, stride=2)
+        self.upConv0 = DoubleConv(4096*2, 4096)
 
-        self.upSample1 = torch.nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.upConv1 = DoubleConv(512, 256)
+        self.upSample1 = torch.nn.ConvTranspose2d(4096, 1024, kernel_size=2, stride=2)
+        self.upConv1 = DoubleConv(1024*2, 1024)
 
-        self.upSample2 = torch.nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.upConv2 = DoubleConv(256, 128)
+        self.upSample2 = torch.nn.ConvTranspose2d(1024, 256, kernel_size=2, stride=2)
+        self.upConv2 = DoubleConv(256*2, 256)
 
-        self.upSample3 = torch.nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.upSample3 = torch.nn.ConvTranspose2d(256, 64, kernel_size=2, stride=2)
         self.upConv3 = DoubleConv(64, 64)
 
         self.finalConv = torch.nn.Sequential(
@@ -81,10 +81,10 @@ class UNet(torch.nn.Module):
         # x1 = self.maxpool(x0)
         # x2 = self.maxpool(x1)
         # x3 = self.maxpool(x2)
-        print(x0.shape)
-        print(x1.shape)
-        print(x2.shape)
-        print(x3.shape)
+#         print(x0.shape)
+#         print(x1.shape)
+#         print(x2.shape)
+#         print(x3.shape)
 
         x = self.upSample0(x3)
         # print(x.shape)
