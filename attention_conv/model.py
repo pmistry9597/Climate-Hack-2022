@@ -19,7 +19,7 @@ class ImageEncoder(torch.nn.Module):
         return self.block(x)
 
 class ImageDecoder(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, final_channels=1):
         super().__init__()
         self.main = torch.nn.Sequential(
             # nz will be the input to the first convolution
@@ -34,12 +34,12 @@ class ImageDecoder(torch.nn.Module):
             #nn.BatchNorm2d(256),
             torch.nn.LeakyReLU(),
             torch.nn.ConvTranspose2d(
-                128, 64, kernel_size=6, 
+                128, 64, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(128),
             torch.nn.LeakyReLU(),
             torch.nn.ConvTranspose2d(
-                64, 1, kernel_size=6, 
+                64, final_channels, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(64),
         )
@@ -47,6 +47,27 @@ class ImageDecoder(torch.nn.Module):
     def forward(self, x):
         #return self.block(x)
         return self.main(x)
+
+class ImageDecoder128(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.decodeInit = ImageDecoder(final_channels=32)
+
+        self.decodeFinal = torch.nn.Sequential(
+            torch.nn.LeakyReLU(),
+            torch.nn.ConvTranspose2d(
+                32, 16, kernel_size=5, 
+                stride=2, padding=0, bias=False),
+                torch.nn.LeakyReLU(),
+            torch.nn.ConvTranspose2d(
+                16, 1, kernel_size=4, 
+                stride=1, padding=0, bias=False),
+        )
+
+    def forward(self, x):
+        x = self.decodeInit(x)
+        return self.decodeFinal(x)
 
 class PWFF(torch.nn.Module):
     def __init__(self, in_chan, inner_chan, out_chan=None):
