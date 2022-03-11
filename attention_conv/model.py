@@ -7,7 +7,7 @@ class ImageEncoder(torch.nn.Module):
 
         convLayers = []
         for i in range(len(channel_list)-1):
-            conv = torch.nn.Conv2d(channel_list[i], channel_list[i+1], kernel_size=kernel_size, padding=kernel_size-1, stride=stride)
+            conv = torch.nn.Conv2d(channel_list[i], channel_list[i+1], kernel_size=kernel_size, stride=stride)
             convLayers.append(conv)
             act = torch.nn.GELU()
             convLayers.append(act)
@@ -44,8 +44,8 @@ class ImageDecoder(torch.nn.Module):
         )
 
     def forward(self, x):
-        return self.block(x)
-        #return self.main(x)'
+        #return self.block(x)
+        return self.main(x)
 
 class PWFF(torch.nn.Module):
     def __init__(self, in_chan, inner_chan, out_chan=None):
@@ -175,6 +175,28 @@ class AttentionConv(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.encoder = ImageEncoder([1, 32, 64, 128], kernel_size=3)
+        self.encoder = ImageEncoder([1, 16, 32, 64, 128, 256, 512], kernel_size=3, stride=2)
         self.decoder = ImageDecoder()
         self.transformer = Transformer(512, 2048, 8, encode_blocks=6, seq_len=12, out_seq_len=24)
+        
+    def forward(self, in_val):
+        encodings = []
+        for sample in in_val:
+            encoding = self.encoder(sample)
+            encodings.append(encoding)
+        encodings = torch.stack(encodings)
+           
+        x = encodings.view([-1, 12, 512])
+        x = self.transformer(x)
+        x = x.view([-1, 24, 512, 1, 1])
+        outs = []
+        for latent in x:
+            out = self.decoder(latent)
+            #print(out.shape)
+            outs.append(out)
+        outs = torch.stack(outs)
+        x = outs.squeeze()
+        
+        return x
+        
+        
