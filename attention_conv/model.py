@@ -100,11 +100,11 @@ class TransformerDecoder(torch.nn.Module):
 
     def forward(self, latents, encoding, unpadded_len):
         mask = [i >= unpadded_len for i in range(latents.shape[1])]
-        mask = torch.tensor(mask).unsqueeze(0)
+        mask = torch.tensor(mask, device=self.ff.lin_in.weight.device).unsqueeze(0)
         mask = mask.expand(latents.shape[0], -1)
 
         premh_masked = latents
-        x, _ = self.masked_multihead(latents, latents, latents, key_padding_mask=mask) # implement masked attention here
+        x, _ = self.masked_multihead(latents, latents, latents)#, key_padding_mask=mask) # implement masked attention here
         x = x + premh_masked
         x = self.masked_mh_norm(x)
 
@@ -134,7 +134,12 @@ class Transformer(torch.nn.Module):
         self.decoders = torch.nn.ModuleList(decoders)
 
         self.in_pe = self._generate_pe(seq_len, dims)
+        self.in_pe = torch.nn.Parameter(self.in_pe)
+        self.in_pe.requires_grad = False
+        
         self.out_pe = self._generate_pe(out_seq_len, dims)
+        self.out_pe = torch.nn.Parameter(self.out_pe)
+        self.out_pe.requires_grad = False
 
         self.decodeFlatten = torch.nn.Flatten()
         self.decodeLinOut = torch.nn.Linear(out_seq_len * dims, dims)
@@ -150,24 +155,32 @@ class Transformer(torch.nn.Module):
                     encoding[seq, dim] = math.sin(seq / 10000.0 ** (dim/dims))
                 else:
                     encoding[seq, dim] = math.cos(seq / 10000.0 ** (dim/dims))
+        encoding = encoding.unsqueeze(0)
         
         return encoding
     
     def forward(self, in_seq):
-        x = in_seq + self.in_pe
+        in_pe = self.in_pe.expand(in_seq.shape[0], -1, -1)
+        x = in_seq + in_pe
         encoding = self.encoders(x)
 
-        out_array = torch.zeros([in_seq.shape[0], self.out_seq_len, self.dims]) #zeros represents padding
+        out_array = torch.zeros([in_seq.shape[0], self.out_seq_len, self.dims], device=in_pe.device) #zeros represents padding
 
         #fill er up!!
-        for entry_no in range(len(out_array)):
-            for decode_pos, decoder in enumerate(self.decoders):
-                decodeOut = decoder(out_array, encoding, entry_no)
-                decodeOut = self.decodeFlatten(decodeOut)
-                latentCode = self.decodeLinOut(decodeOut)
-                out_array = out_array.transpose(0,1) # out_pos x batch_len x dims
-                out_array[decode_pos] = latentCode
-                out_array = out_array.transpose(0,1) # batch_len x out_pos x dims
+        for entry_no in range(self.out_seq_len): #for each entry in the resulting out_array
+            out_pe = self.out_pe.expand(in_seq.shape[0], -1, -1)
+            out_array = out_array + out_pe #add positional encoding to input of decoder
+            entryOut = out_array.clone()
+            
+            for decode_pos, decoder in enumerate(self.decoders): #decoder processing block
+                entryOut = decoder(entryOut, encoding, entry_no)
+            
+            decodeOut = self.decodeFlatten(entryOut)
+            latentCode = self.decodeLinOut(decodeOut)
+            
+            out_array = out_array.transpose(0,1) # out_pos x batch_len x dims
+            out_array[entry_no] = latentCode
+            out_array = out_array.transpose(0,1) # batch_len x out_pos x dims
 
         return out_array
 
@@ -178,10 +191,14 @@ class AttentionConv(torch.nn.Module):
         self.encoder = ImageEncoder([1, 16, 32, 64, 128, 256, 512], kernel_size=3, stride=2)
         self.decoder = ImageDecoder()
         self.transformer = Transformer(512, 2048, 8, encode_blocks=6, seq_len=12, out_seq_len=24)
+        self.range = 1024.0
+        self.sigmoid = torch.nn.Sigmoid()
         
     def forward(self, in_val):
+        x = in_val
+        x = x / self.range
         encodings = []
-        for sample in in_val:
+        for sample in x:
             encoding = self.encoder(sample)
             encodings.append(encoding)
         encodings = torch.stack(encodings)
@@ -196,6 +213,8 @@ class AttentionConv(torch.nn.Module):
             outs.append(out)
         outs = torch.stack(outs)
         x = outs.squeeze()
+        
+        x = self.sigmoid(x) * self.range
         
         return x
         
