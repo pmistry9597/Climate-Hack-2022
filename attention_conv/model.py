@@ -174,22 +174,22 @@ class TransformerDecoder(torch.nn.Module):
         self.masked_multihead = torch.nn.MultiheadAttention(dims, heads, batch_first=True)
 
     def forward(self, latents, encoding, unpadded_len):
-        mask = [i >= unpadded_len for i in range(latents.shape[1])]
-        mask = torch.tensor(mask, device=self.ff.lin_in.weight.device).unsqueeze(0)
-        mask = mask.expand(latents.shape[0], -1)
+        # mask = [i >= unpadded_len for i in range(latents.shape[1])]
+        # mask = torch.tensor(mask, device=self.ff.lin_in.weight.device).unsqueeze(0)
+        # mask = mask.expand(latents.shape[0], -1)
 
         premh_masked = latents
         x, _ = self.masked_multihead(latents, latents, latents)#, key_padding_mask=mask) # implement masked attention here
         x = x + premh_masked
         x = self.masked_mh_norm(x)
 
-#         print(x.shape, encoding.shape)
-        premh = x.clone()
+        # print(x.shape, encoding.shape)
+        premh = x
         x, _ = self.multihead(x, encoding, encoding)
         x = x + premh
         x = self.multihead_norm(x)
 
-        preff = x.clone()
+        preff = x
         x = self.ff(x)
         x = x + preff
         x = self.ff_norm(x)
