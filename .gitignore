@@ -168,6 +168,7 @@ basic_models/
 basic_perceiver_models/
 conv_concept_models/
 attnconv_ae/
+other_state_dicts/
 ## faster, compressed numpy array
 uk_data_np/
 ## doing dumb tests basically
