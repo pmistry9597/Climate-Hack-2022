@@ -18,28 +18,58 @@ class ImageEncoder(torch.nn.Module):
         x = x.view([-1, 1, 128, 128])
         return self.block(x)
 
+# class ImageDecoder(torch.nn.Module):
+#     def __init__(self, final_channels=1):
+#         super().__init__()
+#         self.main = torch.nn.Sequential(
+#             # nz will be the input to the first convolution
+#             torch.nn.ConvTranspose2d(
+#                 2048, 1024, kernel_size=5, 
+#                 stride=2, padding=0, bias=False),
+#             #nn.BatchNorm2d(512),
+#             torch.nn.Tanh(),
+#             torch.nn.ConvTranspose2d(
+#                 1024, 512, kernel_size=5, 
+#                 stride=2, padding=0, bias=False),
+#             #nn.BatchNorm2d(256),
+#             torch.nn.Tanh(),
+#             torch.nn.ConvTranspose2d(
+#                 512, 256, kernel_size=5, 
+#                 stride=2, padding=0, bias=False),
+#             #nn.BatchNorm2d(128),
+#             torch.nn.Tanh(),
+#             torch.nn.ConvTranspose2d(
+#                 256, final_channels, kernel_size=5, 
+#                 stride=2, padding=0, bias=False),
+#             #nn.BatchNorm2d(64),
+#         )
+
+#     def forward(self, x):
+#         #return self.block(x)
+#         return self.main(x)
+
 class ImageDecoder(torch.nn.Module):
     def __init__(self, final_channels=1):
         super().__init__()
         self.main = torch.nn.Sequential(
             # nz will be the input to the first convolution
             torch.nn.ConvTranspose2d(
-                2048, 1024, kernel_size=5, 
+                4096, 2048, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(512),
             torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                1024, 512, kernel_size=5, 
+                2048, 1024, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(256),
             torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                512, 256, kernel_size=5, 
+                1024, 512, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(128),
             torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                256, final_channels, kernel_size=5, 
+                512, final_channels, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             #nn.BatchNorm2d(64),
         )
@@ -48,20 +78,41 @@ class ImageDecoder(torch.nn.Module):
         #return self.block(x)
         return self.main(x)
 
+# class ImageDecoder128(torch.nn.Module):
+#     def __init__(self):
+#         super().__init__()
+
+#         self.decodeInit = ImageDecoder(final_channels=128)
+
+#         self.decodeFinal = torch.nn.Sequential(
+#             torch.nn.Tanh(),
+#             torch.nn.ConvTranspose2d(
+#                 128, 64, kernel_size=5, 
+#                 stride=2, padding=0, bias=False),
+#             torch.nn.Tanh(),
+#             torch.nn.ConvTranspose2d(
+#                 64, 1, kernel_size=4, 
+#                 stride=1, padding=0, bias=False),
+#         )
+
+#     def forward(self, x):
+#         x = self.decodeInit(x)
+#         return self.decodeFinal(x)
+    
 class ImageDecoder128(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.decodeInit = ImageDecoder(final_channels=128)
+        self.decodeInit = ImageDecoder(final_channels=256)
 
         self.decodeFinal = torch.nn.Sequential(
             torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                128, 64, kernel_size=5, 
+                256, 128, kernel_size=5, 
                 stride=2, padding=0, bias=False),
             torch.nn.Tanh(),
             torch.nn.ConvTranspose2d(
-                64, 1, kernel_size=4, 
+                128, 1, kernel_size=4, 
                 stride=1, padding=0, bias=False),
         )
 
