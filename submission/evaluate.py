@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from climatehack import BaseEvaluator
-from model import AttentionConv
+from model import DeepConvChannels
 
 
 class Evaluator(BaseEvaluator):
@@ -14,7 +14,7 @@ class Evaluator(BaseEvaluator):
         #preprocess = ImagesPreprocess()
         
         #self.model = PerceiverCH(preprocess, latent_dim=(32, 128), heads=8, wide_factor=4, latent_count=6)
-        self.model = AttentionConv()
+        self.model = DeepConvChannels()
         self.model.load_state_dict(torch.load("curr_model", map_location='cpu'))
         self.model.eval()
 
@@ -34,7 +34,7 @@ class Evaluator(BaseEvaluator):
 
         with torch.no_grad():
             prediction = (
-                self.model(torch.from_numpy(data).view(1, 12, 128, 128))
+                self.model(torch.from_numpy(data).view(1, 12, 128, 128).float())
                 .view(24, 64, 64)
                 .detach()
                 .numpy()

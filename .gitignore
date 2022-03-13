@@ -169,6 +169,8 @@ basic_perceiver_models/
 conv_concept_models/
 attnconv_ae/
 other_state_dicts/
+## state dicts of SOTA
+SOTA/*/curr_model*
 ## faster, compressed numpy array
 uk_data_np/
 ## doing dumb tests basically
