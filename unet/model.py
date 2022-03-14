@@ -5,15 +5,19 @@ class DoubleConv(torch.nn.Module):
         super().__init__()
 
         self.conv0 = torch.nn.Conv2d(in_channels, process_channels, kernel_size=kernel_size)
+        self.norm0 = torch.nn.BatchNorm2d(process_channels)
         self.conv1 = torch.nn.Conv2d(process_channels, process_channels, kernel_size=kernel_size)
-        self.relu = torch.nn.ReLU()
+        self.norm1 = torch.nn.BatchNorm2d(process_channels)
+        self.gelu = torch.nn.GELU()
 
     def forward(self, x):
         x = self.conv0(x)
-        x = self.relu(x)
+        x = self.norm0(x)
+        x = self.gelu(x)
         # print(x.shape)
         x = self.conv1(x)
-        x = self.relu(x)
+        x = self.norm1(x)
+        x = self.gelu(x)
         # print(x.shape)
 
         return x
