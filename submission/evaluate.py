@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from climatehack import BaseEvaluator
-from model import DeepConvChannels
+from model import UNet
 
 
 class Evaluator(BaseEvaluator):
@@ -14,7 +14,7 @@ class Evaluator(BaseEvaluator):
         #preprocess = ImagesPreprocess()
         
         #self.model = PerceiverCH(preprocess, latent_dim=(32, 128), heads=8, wide_factor=4, latent_count=6)
-        self.model = DeepConvChannels()
+        self.model = UNet()
         self.model.load_state_dict(torch.load("curr_model", map_location='cpu'))
         self.model.eval()
 

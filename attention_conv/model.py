@@ -237,6 +237,8 @@ class Transformer(torch.nn.Module):
         return encoding
     
     def forward(self, in_seq):
+        #CREATE THE EMBEDDING SPACE FOR BOTH INPUT AND OUTPUTS
+        
         in_pe = self.in_pe.expand(in_seq.shape[0], -1, -1)
 #         x = self.tanh(in_seq) + in_pe
         x = in_seq + in_pe
