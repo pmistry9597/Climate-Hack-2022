@@ -22,6 +22,43 @@ class DoubleConv(torch.nn.Module):
         # print(x.shape)
 
         return x
+    
+class QuadConv(torch.nn.Module):
+    def __init__(self, in_channels, process_channels, kernel_size=3, padding=0):
+        super().__init__()
+
+        self.conv0 = torch.nn.Conv2d(in_channels, process_channels, kernel_size=kernel_size, padding=padding)
+        self.norm0 = torch.nn.BatchNorm2d(process_channels)
+        self.conv1 = torch.nn.Conv2d(process_channels, process_channels, kernel_size=kernel_size, padding=padding)
+        self.norm1 = torch.nn.BatchNorm2d(process_channels)
+        self.conv2 = torch.nn.Conv2d(process_channels, process_channels, kernel_size=kernel_size, padding=padding)
+        self.norm2 = torch.nn.BatchNorm2d(process_channels)
+        self.conv3 = torch.nn.Conv2d(process_channels, process_channels, kernel_size=kernel_size, padding=padding)
+        self.norm3 = torch.nn.BatchNorm2d(process_channels)
+        self.gelu = torch.nn.GELU()
+
+    def forward(self, x):
+        x = self.conv0(x)
+        x = self.norm0(x)
+        x = self.gelu(x)
+        # print(x.shape)
+        x = self.conv1(x)
+        x = self.norm1(x)
+        x = self.gelu(x)
+        
+        x = self.conv2(x)
+        x = self.norm2(x)
+        x = self.gelu(x)
+        
+        x = self.conv3(x)
+        
+        if not (x.shape[-1] == 1 and x.shape[-2] == 1):
+            x = self.norm3(x)
+        
+        x = self.gelu(x)
+        # print(x.shape)
+
+        return x
 
 class Crop(torch.nn.Module):
     def __init__(self):
@@ -111,6 +148,79 @@ class UNet(torch.nn.Module):
 
         return x
     
+class UNetQuad(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.maxpool = torch.nn.MaxPool2d(kernel_size=2)
+        
+        # down sample convolutions
+        self.inConv = QuadConv(12, 128)
+        self.downConv0 = QuadConv(128, 256)
+        self.downConv1 = QuadConv(256, 512)
+        self.downConv2 = QuadConv(512, 8192)
+        
+        # upsample portion of network
+        self.upSample0 = torch.nn.ConvTranspose2d(8192, 512, kernel_size=2, stride=2)
+        self.upConv0 = QuadConv(8192, 512, padding=2)
+
+        self.upSample1 = torch.nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.upConv1 = QuadConv(512, 256)
+
+        self.upSample2 = torch.nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.upConv2 = QuadConv(256, 128, kernel_size=5)
+
+        self.finalLayer = torch.nn.Sequential(
+            torch.nn.Conv2d(128, 24, kernel_size=1)
+        )
+
+        self.crop = Crop()
+
+        self.sigmoid = torch.nn.Sigmoid()
+
+        self.range = 1024.0
+
+    def forward(self, in_val):
+        x = in_val / self.range
+
+        x0 = self.inConv(x)
+        x1 = self.downConv0(self.maxpool(x0))
+        x2 = self.downConv1(self.maxpool(x1))
+#         print(x2.shape)
+        x3 = self.downConv2(self.maxpool(x2))
+        
+        print(x0.shape)
+        print(x1.shape)
+        print(x2.shape)
+        print(x3.shape)
+        
+#         print('after downsample')
+        
+        x = self.upSample0(x3)
+        # print(x.shape)
+        x2 = self.crop(x2, x)
+        x = self.upConv0( torch.cat([x, x2], dim=1) )
+#         print(x.shape)
+        
+        x = self.upSample1(x)
+        # print(x.shape)
+        x1 = self.crop(x1, x)
+        x = self.upConv1( torch.cat([x, x1], dim=1) )
+#         print(x.shape)
+        
+        x = self.upSample2(x)
+        # print(x.shape)
+        x0 = self.crop(x0, x)
+        x = self.upConv2( torch.cat([x, x0], dim=1) )
+#         print(x.shape)
+
+        x = self.finalLayer(x)
+        # print(x.shape)
+
+        x = self.sigmoid(x) * self.range
+
+        return x
+    
 class UNetDeep(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -130,15 +240,15 @@ class UNetDeep(torch.nn.Module):
             torch.nn.Conv2d(2048, 4096, kernel_size=3),
             torch.nn.BatchNorm2d(4096),
             torch.nn.GELU(),
-            torch.nn.Conv2d(4096, 8192, kernel_size=3),
-            torch.nn.BatchNorm2d(8192),
-            torch.nn.GELU(),
+#             torch.nn.Conv2d(4096, 8192, kernel_size=3),
+#             torch.nn.BatchNorm2d(8192),
+#             torch.nn.GELU(),
         )
         
         self.decoderInitialConv = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(8192, 4096, kernel_size=3),
-            torch.nn.BatchNorm2d(4096),
-            torch.nn.GELU(),
+#             torch.nn.ConvTranspose2d(8192, 4096, kernel_size=3),
+#             torch.nn.BatchNorm2d(4096),
+#             torch.nn.GELU(),
             torch.nn.ConvTranspose2d(4096, 2048, kernel_size=3),
             torch.nn.BatchNorm2d(2048),
             torch.nn.GELU(),
@@ -181,6 +291,7 @@ class UNetDeep(torch.nn.Module):
 #         print(x3.shape)
         
         x3 = self.encoderFinalConv(x3)
+#         print(x3.shape)
         x3 = self.decoderInitialConv(x3)
         
 #         print('after downsample')
