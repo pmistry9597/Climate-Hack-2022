@@ -207,6 +207,8 @@ class AttentionUNet(torch.nn.Module):
         self.ln2 = torch.nn.LayerNorm(16*16)
         self.ln3 = torch.nn.LayerNorm(8*8)
         
+        self.dropout = torch.nn.Dropout(0.1)
+        
         # upsample portion of network
         self.upSample0 = torch.nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
         self.upConv0 = DoubleConv(1024, 512, padding=2)
@@ -243,21 +245,21 @@ class AttentionUNet(torch.nn.Module):
 #         print('after downsample')
 
         # kv tensor for all attention mechanisms
-        kv = x3.view([-1, 1024, 36])
+        kv = x3.view([-1, 1024, 64])
         # self attention
         q3 = kv
-        x = self.mh3(q3, kv, kv)
-        x = self.ln3(x + q3)
-        x = x.view([-1, 1024, 6, 6])
+        x, _ = self.mh3(q3, kv, kv)
+        x = self.ln3( self.dropout(x) + q3 )
+        x = x.view([-1, 1024, 8, 8])
         
         x = self.upSample0(x)
         # print(x.shape)
         x2 = self.crop(x2, x)
         # attention mechanism
-        q2 = x2.view([-1, 512, 200])
-        x2 = self.mh2(q2, kv, kv)
-        x2 = self.ln2(x2 + q2)
-        x2 = x2.view([-1, 512, 40, 40])
+        q2 = x2.reshape([-1, 512, 256])
+        x2, _ = self.mh2(q2, kv, kv)
+        x2 = self.ln2( self.dropout(x2) + q2 )
+        x2 = x2.view([-1, 512, 16, 16])
         # end of attention mechanism
         x = self.upConv0( torch.cat([x, x2], dim=1) )
 #         print(x.shape)
@@ -267,10 +269,10 @@ class AttentionUNet(torch.nn.Module):
         x1 = self.crop(x1, x)
         x2 = self.crop(x2, x)
         # attention mechanism
-        q1 = x1.view([-1, 256, 256])
-        x1 = self.mh1(q1, kv, kv)
-        x1 = self.ln1(x1 + q1)
-        x1 = x1.view([-1, 256, 16, 16])
+        q1 = x1.reshape([-1, 256, 1600])
+        x1, _ = self.mh1(q1, kv, kv)
+        x1 = self.ln1( self.dropout(x1) + q1)
+        x1 = x1.view([-1, 256, 40, 40])
         # end of attention mechanism
         x = self.upConv1( torch.cat([x, x1], dim=1) )
 #         print(x.shape)
@@ -279,9 +281,9 @@ class AttentionUNet(torch.nn.Module):
         # print(x.shape)
         x0 = self.crop(x0, x)
         # attention mechanism
-        q0 = x0.view([-1, 128, 5184])
-        x0 = self.mh0(q0, kv, kv)
-        x0 = self.ln0(x0 + q0)
+        q0 = x0.reshape([-1, 128, 5184])
+        x0, _ = self.mh0(q0, kv, kv)
+        x0 = self.ln0( self.dropout(x0) + q0)
         x0 = x0.view([-1, 128, 72, 72])
         # end of attention mechanism
         x = self.upConv2( torch.cat([x, x0], dim=1) )
