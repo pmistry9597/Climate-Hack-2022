@@ -267,7 +267,7 @@ class AttentionUNet(torch.nn.Module):
         x = self.upSample1(x)
         # print(x.shape)
         x1 = self.crop(x1, x)
-        x2 = self.crop(x2, x)
+#         x2 = self.crop(x2, x)
         # attention mechanism
         q1 = x1.reshape([-1, 256, 1600])
         x1, _ = self.mh1(q1, kv, kv)
