@@ -1,4 +1,5 @@
 import torch
+import math
 
 class DoubleConv(torch.nn.Module):
     def __init__(self, in_channels, process_channels, kernel_size=3, padding=0):
@@ -301,3 +302,173 @@ class AttentionUNet(torch.nn.Module):
 
         return x
 
+class Transformer(torch.nn.Module):
+    def __init__(self, dims, ff_width, heads, encode_blocks, seq_len, out_seq_len):
+        super().__init__()
+
+        encoders = [TransformerEncoder(dims, ff_width, heads) for _ in range(encode_blocks)]
+        self.encoders = torch.nn.Sequential(
+            *encoders
+        )
+
+        self.in_pe = self._generate_pe(seq_len, dims)
+        self.in_pe = torch.nn.Parameter(self.in_pe)
+        self.in_pe.requires_grad = False
+
+        self.dims = dims
+        self.out_seq_len = out_seq_len
+
+    def _generate_pe(self, seq_len, dims):
+        encoding = torch.empty([seq_len, dims])
+        for seq in range(encoding.shape[0]):
+            for dim in range(encoding.shape[1]):
+                if dim % 2 == 0:
+                    encoding[seq, dim] = math.sin(seq / 10000.0 ** (dim/float(dims)))
+                else:
+                    encoding[seq, dim] = math.cos(seq / 10000.0 ** ((dim-1)/float(dims)))
+        encoding = encoding.unsqueeze(0)
+        
+        return encoding
+    
+    def forward(self, in_seq):
+        #CREATE THE EMBEDDING SPACE FOR BOTH INPUT AND OUTPUTS
+        
+        in_pe = self.in_pe.expand(in_seq.shape[0], -1, -1)
+#         x = self.tanh(in_seq) + in_pe
+        x = in_seq + in_pe
+#         print(x)
+        encoding = self.encoders(x)
+        
+        return encoding
+
+class PWFF(torch.nn.Module):
+    def __init__(self, in_chan, inner_chan, out_chan=None):
+        super().__init__()
+        if out_chan == None:
+            out_chan = in_chan
+        self.lin_in = torch.nn.Linear(in_chan, inner_chan)
+#         self.gelu = torch.nn.GELU()
+        self.tanh = torch.nn.Tanh()
+        self.lin_out = torch.nn.Linear(inner_chan, out_chan)
+
+    def forward(self, x):
+        x = self.lin_in(x)
+#         x = self.gelu(x)
+        x = self.tanh(x)
+        x = self.lin_out(x)
+        return x
+
+class TransformerEncoder(torch.nn.Module):
+    def __init__(self, dims, ff_width, heads):
+        super().__init__()
+
+        self.ff_norm = torch.nn.LayerNorm(dims)
+        self.ff = PWFF(dims, ff_width)
+        self.multihead_norm = torch.nn.LayerNorm(dims)
+        self.multihead = torch.nn.MultiheadAttention(dims, heads, batch_first=True)
+    
+    def forward(self, in_val):
+        premh = in_val
+        x, _ = self.multihead(in_val, in_val, in_val)
+#         print(x.shape)
+        x = x + premh
+        x = self.multihead_norm(x)
+
+        preff = x.clone()
+        x = self.ff(x)
+        x = x + preff
+        x = self.ff_norm(x)
+
+        return x
+
+class TransformerUNet(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.maxpool = torch.nn.MaxPool2d(kernel_size=2)
+        
+        # down sample convolutions
+        self.inConv = DoubleConv(12, 128)
+        self.downConv0 = DoubleConv(128, 256)
+        self.downConv1 = DoubleConv(256, 512)
+        self.downConv2 = DoubleConv(512, 1024)
+
+        self.latentTransform = Transformer(8*8, 8*8*8, 12, 24, 1024, 1024)
+        self.latentNorm = torch.nn.LayerNorm(8*8)
+        
+        self.dropout = torch.nn.Dropout(0.1)
+        
+        # upsample portion of network
+        self.upSample0 = torch.nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
+        self.upConv0 = DoubleConv(1024, 512, padding=2)
+
+        self.upSample1 = torch.nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.upConv1 = DoubleConv(512, 256)
+
+        self.upSample2 = torch.nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.upConv2 = DoubleConv(256, 128, kernel_size=5)
+
+        self.finalLayer = torch.nn.Sequential(
+            torch.nn.Conv2d(128, 24, kernel_size=1)
+        )
+
+        self.crop = Crop()
+
+        self.sigmoid = torch.nn.Sigmoid()
+
+        self.range = 1024.0
+
+    def forward(self, in_val):
+        x = in_val / self.range
+
+        x0 = self.inConv(x)
+        x1 = self.downConv0(self.maxpool(x0))
+        x2 = self.downConv1(self.maxpool(x1))
+        x3 = self.downConv2(self.maxpool(x2))
+        
+        # print(x0.shape)
+        # print(x1.shape)
+        # print(x2.shape)
+        # print(x3.shape)
+        
+#         print('after downsample')
+
+        # kv tensor for all attention mechanisms
+        x3 = x3.view([-1, 1024, 64])
+
+        # transformer on latent space + res connection
+        x = self.latentTransform(x3)
+        x = self.latentNorm(self.dropout(x) + x3)
+
+        x = x.view([-1, 1024, 8, 8])
+        
+        x = self.upSample0(x)
+        # print(x.shape)
+        x2 = self.crop(x2, x)
+        x = self.upConv0( torch.cat([x, x2], dim=1) )
+#         print(x.shape)
+        
+        x = self.upSample1(x)
+        # print(x.shape)
+        x1 = self.crop(x1, x)
+        x2 = self.crop(x2, x)
+        x = self.upConv1( torch.cat([x, x1], dim=1) )
+#         print(x.shape)
+        
+        x = self.upSample2(x)
+        # print(x.shape)
+        x0 = self.crop(x0, x)
+        x = self.upConv2( torch.cat([x, x0], dim=1) )
+#         print(x.shape)
+
+        # print(x0.shape)
+        # print(x1.shape)
+        # print(x2.shape)
+        # print(x3.shape)
+
+        x = self.finalLayer(x)
+        # print(x.shape)
+
+        x = self.sigmoid(x) * self.range
+
+        return x
