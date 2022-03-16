@@ -116,10 +116,10 @@ class UNet(torch.nn.Module):
         x2 = self.downConv1(self.maxpool(x1))
         x3 = self.downConv2(self.maxpool(x2))
         
-#         print(x0.shape)
-#         print(x1.shape)
-#         print(x2.shape)
-#         print(x3.shape)
+        # print(x0.shape)
+        # print(x1.shape)
+        # print(x2.shape)
+        # print(x3.shape)
         
 #         print('after downsample')
         
@@ -127,19 +127,19 @@ class UNet(torch.nn.Module):
         # print(x.shape)
         x2 = self.crop(x2, x)
         x = self.upConv0( torch.cat([x, x2], dim=1) )
-#         print(x.shape)
+        # print(x.shape, '\n')
         
         x = self.upSample1(x)
         # print(x.shape)
         x1 = self.crop(x1, x)
         x = self.upConv1( torch.cat([x, x1], dim=1) )
-#         print(x.shape)
+        # print(x.shape, '\n')
         
         x = self.upSample2(x)
         # print(x.shape)
         x0 = self.crop(x0, x)
         x = self.upConv2( torch.cat([x, x0], dim=1) )
-#         print(x.shape)
+        # print(x.shape, '\n')
 
         x = self.finalLayer(x)
         # print(x.shape)
