@@ -177,3 +177,6 @@ uk_data_np/
 testing_pls.ipynb
 ## fashion mnist test
 fm_set/
+## submission stuff
+features.npz
+targets.npz
