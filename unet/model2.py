@@ -46,12 +46,12 @@ class UNetPP(torch.nn.Module):
         self.maxpool = torch.nn.MaxPool2d(kernel_size=2) # just reuse this lul, no learnable params here
         
         # first nodes in each layer form the encoder backbone
-        self.convNodes = [
-            [ ConvBlock(12, 128), ConvBlock(128 * 2, 128), ConvBlock(128 * 3, 128), ConvBlock(128 * 4, 128, kernel_size=5), ], # layer 0 nodes
-            [ ConvBlock(128, 256), ConvBlock(256 * 2, 256), ConvBlock(256 * 3, 256, kernel_size=5), ], # layer 1 nodes
-            [ ConvBlock(256, 512), ConvBlock(512 * 2, 512, kernel_size=5) ], # layer 2 nodes
-            [ ConvBlock(512, 1024, kernel_size=3) ], # layer 3 nodes
-        ]
+        self.convNodes = torch.nn.ModuleList([
+            torch.nn.ModuleList([ ConvBlock(12, 128), ConvBlock(128 * 2, 128), ConvBlock(128 * 3, 128), ConvBlock(128 * 4, 128, kernel_size=5), ]), # layer 0 nodes
+            torch.nn.ModuleList([ ConvBlock(128, 256), ConvBlock(256 * 2, 256), ConvBlock(256 * 3, 256, kernel_size=5), ]), # layer 1 nodes
+            torch.nn.ModuleList([ ConvBlock(256, 512), ConvBlock(512 * 2, 512, kernel_size=5) ]), # layer 2 nodes
+            torch.nn.ModuleList([ ConvBlock(512, 1024, kernel_size=3) ]), # layer 3 nodes
+        ])
         self.nodeDiags = [ [] ]
         for d_idx in range(1, 4):
             nodeDiag = []
@@ -63,12 +63,12 @@ class UNetPP(torch.nn.Module):
         
         # print(self.nodeDiags)
 
-        self.upSamples = [
-            [  ], # upsample for layer 0
-            [ ConvTranspose2d(256, 128, kernel_size=2, stride=2), ConvTranspose2d(256, 128, kernel_size=2, stride=2), ConvTranspose2d(256, 128, kernel_size=2, stride=2), ], # upsample for layer 1
-            [ ConvTranspose2d(512, 256, kernel_size=2, stride=2), ConvTranspose2d(512, 256, kernel_size=2, stride=2), ], # upsample for layer 2
-            [ ConvTranspose2d(1024, 512, kernel_size=2, stride=2), ], # upsample for layer 3
-        ]
+        self.upSamples = torch.nn.ModuleList([
+            torch.nn.ModuleList([  ]), # upsample for layer 0
+            torch.nn.ModuleList([ ConvTranspose2d(256, 128, kernel_size=2, stride=2), ConvTranspose2d(256, 128, kernel_size=2, stride=2), ConvTranspose2d(256, 128, kernel_size=2, stride=2), ]), # upsample for layer 1
+            torch.nn.ModuleList([ ConvTranspose2d(512, 256, kernel_size=2, stride=2), ConvTranspose2d(512, 256, kernel_size=2, stride=2), ]), # upsample for layer 2
+            torch.nn.ModuleList([ ConvTranspose2d(1024, 512, kernel_size=2, stride=2), ]), # upsample for layer 3
+        ])
         self.upDiags = [ [] ]
         for d_idx in range(0, 3):
             upDiag = []
