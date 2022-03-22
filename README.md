@@ -20,10 +20,10 @@ I haven't uploaded parameters however as the files can be large, and I don't wan
 
 My training for these models took place within a few hours for my models as I didn't have the time (or patience :P) given the amount of time I had. This list may not be exhaustive, as I'm tired ;-;.
 
-### Attention Mechanism Based
-
 * Basic Model - Absolute Garbage Densely-Connected
 Just a few dense layers with sigmoid restricted output range (the default model used relu which made no sense to me). Immediately gave me above `0.61` score.
+
+### Attention Mechanism Based
 
 * Perceiver/Perceiver IO
 Couldn't get this thing to work on a classification problem ;-;. I discovered LAMB optimizer and its ability to use large batch sizes w/ higher learn rate later on, which maybe would have allowed me to take advantage of this architecture.
@@ -39,4 +39,4 @@ The most brain-dead thing you can do with convolutional + convolutional transpos
 #### UNets!! - The winning one for me
 These guys are essentially the stupid simple conv one except there is staged downsampling and upsampling and skip connections between the corresponding upsampling/downsampling stages. This allows for great information flow. Not invented by me!!!
 
-There are a ton of UNets I made up that I tried, but the original one adapted to this problem performed second best, and the UNetDeep performed best overall (with my highest score of `0.74036`). UNetDeep is simply a UNet with deeper convolutions in the latent/bottleneck section. Of course, I simply did not have enough time to try different training set ups for all the UNets I tried, so who knows which has highest model capacity.
+There are a ton of UNets I made up that I tried, but the original one adapted to this problem performed second best, and the UNetDeep performed best overall (with my highest score of `0.76036`). UNetDeep is simply a UNet with deeper convolutions in the latent/bottleneck section. Of course, I simply did not have enough time to try different training set ups for all the UNets I tried, so who knows which has highest model capacity.
