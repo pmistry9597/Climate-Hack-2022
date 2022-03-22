@@ -18,7 +18,7 @@ I haven't uploaded parameters however as the files can be large, and I don't wan
 
 ## Architectures I've tried
 
-My training for these models took place within a few hours for my models as I didn't have the time (or patience :P) given the amount of time I had.
+My training for these models took place within a few hours for my models as I didn't have the time (or patience :P) given the amount of time I had. This list may not be exhaustive, as I'm tired ;-;.
 
 ### Attention Mechanism Based
 
