@@ -3,7 +3,7 @@
 This repo is kind of a disgusting mess but somehow I managed to place 14th out of ~130 with a score of `0.76036` at submission time. The competition was to do satellite weather imagery prediction (generation) for two hours based on the previous hour of satellite imagery. The intervals of imagery are 12 images per hour, so the input to the model is 12 images, and the output is 24 images.
 
 More info can be found here (as of March 21, 2022):
-[Climate Hack Website](climatehack.ai)
+[Climate Hack Website](https://climatehack.ai)
 
 ## How this repo is organized
 
